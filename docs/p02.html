@@ -11,9 +11,9 @@
 
 
 
-<title>Portfolio 2</title>
+<title>Portfolio 2: Gamelytics: Mobile Game Analytics Challenge 2</title>
 
-<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.31/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
@@ -290,18 +290,362 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Portfolio 2</h1>
+<h1 class="title toc-ignore">Portfolio 2: Gamelytics: Mobile Game
+Analytics Challenge 2</h1>
 
 </div>
 
 
 <blockquote>
-<p>The projects should be numbered consecutively (i.e., in the order in
-which you began them), and should include for each project a description
-of the goal, the product (computer program, hand graph, computer graph,
-etc.), the data, and some interpretation. Reports must be reproducible
-and of high quality in terms of writing, grammar, presentation, etc.</p>
+<p>Goal: For the second portfolio, I am continuing the Gamelytics
+challenge from Kaggle. Here, according to the challenge, I will examine
+how often players return to the mobile game after registering by
+calculating daily retention rates from registration and login data. We
+have two datasets we are working with where ‘reg_data’ contains user
+registration timestamps, and ‘auth_data’ contains user login timestamps,
+both with the unique user IDs.</p>
 </blockquote>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.2.0     ✔ readr     2.2.0
+## ✔ forcats   1.0.1     ✔ stringr   1.6.0
+## ✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+## ✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+## ✔ purrr     1.2.1     
+## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>library(lubridate)
+library(scales)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;scales&#39;
+## 
+## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     discard
+## 
+## The following object is masked from &#39;package:readr&#39;:
+## 
+##     col_factor</code></pre>
+<div id="import-files" class="section level1">
+<h1>Import files</h1>
+<pre class="r"><code>reg_data &lt;- read_delim(
+  &quot;data/reg_data.csv&quot;,
+  delim = &quot;;&quot;,
+  escape_double = FALSE,
+  trim_ws = TRUE
+)</code></pre>
+<pre><code>## Rows: 1000000 Columns: 2
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;;&quot;
+## dbl (2): reg_ts, uid
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>auth_data &lt;- read_delim(
+  &quot;data/auth_data.csv&quot;,
+  delim = &quot;;&quot;,
+  escape_double = FALSE,
+  trim_ws = TRUE
+)</code></pre>
+<pre><code>## Rows: 9601013 Columns: 2
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;;&quot;
+## dbl (2): auth_ts, uid
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<p>Check data first</p>
+<pre class="r"><code>glimpse(reg_data)</code></pre>
+<pre><code>## Rows: 1,000,000
+## Columns: 2
+## $ reg_ts &lt;dbl&gt; 911382223, 932683089, 947802447, 959523541, 969103313, 97720649…
+## $ uid    &lt;dbl&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, …</code></pre>
+<pre class="r"><code>glimpse(auth_data)</code></pre>
+<pre><code>## Rows: 9,601,013
+## Columns: 2
+## $ auth_ts &lt;dbl&gt; 911382223, 932683089, 932921206, 933393015, 933875379, 9343726…
+## $ uid     &lt;dbl&gt; 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,…</code></pre>
+<pre class="r"><code>names(reg_data)</code></pre>
+<pre><code>## [1] &quot;reg_ts&quot; &quot;uid&quot;</code></pre>
+<pre class="r"><code>names(auth_data)</code></pre>
+<pre><code>## [1] &quot;auth_ts&quot; &quot;uid&quot;</code></pre>
+<p>We need to convert the timestamps to dates first.</p>
+<p>The dataset contains timestamps representing registration and login
+times in numeric format. These values are not directly interpretable, so
+they were converted into calendar dates. This step allows us to
+meaningfully calculate the number of days between registration and
+subsequent user activity.</p>
+<pre class="r"><code>library(lubridate)
+
+reg_data &lt;- reg_data %&gt;%
+  mutate(reg_date = as.Date(as_datetime(reg_ts)))
+
+auth_data &lt;- auth_data %&gt;%
+  mutate(auth_date = as.Date(as_datetime(auth_ts)))</code></pre>
+<pre class="r"><code>head(reg_data)</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##      reg_ts   uid reg_date  
+##       &lt;dbl&gt; &lt;dbl&gt; &lt;date&gt;    
+## 1 911382223     1 1998-11-18
+## 2 932683089     2 1999-07-22
+## 3 947802447     3 2000-01-13
+## 4 959523541     4 2000-05-28
+## 5 969103313     5 2000-09-16
+## 6 977206495     6 2000-12-19</code></pre>
+<pre class="r"><code>head(auth_data)</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##     auth_ts   uid auth_date 
+##       &lt;dbl&gt; &lt;dbl&gt; &lt;date&gt;    
+## 1 911382223     1 1998-11-18
+## 2 932683089     2 1999-07-22
+## 3 932921206     2 1999-07-25
+## 4 933393015     2 1999-07-31
+## 5 933875379     2 1999-08-05
+## 6 934372615     2 1999-08-11</code></pre>
+<p>Join the datasets</p>
+<pre class="r"><code>login_data &lt;- auth_data %&gt;%
+  left_join(reg_data, by = &quot;uid&quot;)</code></pre>
+<p>First, I will calculate the days since registration</p>
+<p>To measure retention, I will compute the number of days between each
+user’s registration date and their subsequent login events. This
+variable, “days since registration,” allows us to track user return
+behavior over time and identify when users are most likely to
+disengage.</p>
+<pre class="r"><code>login_data &lt;- login_data %&gt;%
+  mutate(days_since_registration = as.numeric(auth_date - reg_date))
+head(login_data)</code></pre>
+<pre><code>## # A tibble: 6 × 6
+##     auth_ts   uid auth_date     reg_ts reg_date   days_since_registration
+##       &lt;dbl&gt; &lt;dbl&gt; &lt;date&gt;         &lt;dbl&gt; &lt;date&gt;                       &lt;dbl&gt;
+## 1 911382223     1 1998-11-18 911382223 1998-11-18                       0
+## 2 932683089     2 1999-07-22 932683089 1999-07-22                       0
+## 3 932921206     2 1999-07-25 932683089 1999-07-22                       3
+## 4 933393015     2 1999-07-31 932683089 1999-07-22                       9
+## 5 933875379     2 1999-08-05 932683089 1999-07-22                      14
+## 6 934372615     2 1999-08-11 932683089 1999-07-22                      20</code></pre>
+<p>Now we will calculate the daily retention</p>
+<pre class="r"><code>total_users &lt;- n_distinct(reg_data$uid)
+
+retention &lt;- login_data %&gt;%
+  filter(days_since_registration &gt;= 0) %&gt;%
+  group_by(days_since_registration) %&gt;%
+  summarise(
+    returning_users = n_distinct(uid)
+  ) %&gt;%
+  mutate(
+    retention_rate = returning_users / total_users
+  )
+
+head(retention)</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##   days_since_registration returning_users retention_rate
+##                     &lt;dbl&gt;           &lt;int&gt;          &lt;dbl&gt;
+## 1                       0         1000000         1     
+## 2                       1           20071         0.0201
+## 3                       2           40997         0.0410
+## 4                       3           46338         0.0463
+## 5                       4           52258         0.0523
+## 6                       5           59863         0.0599</code></pre>
+<p>Because early user behavior is the most informative for product
+evaluation, I will narrow the focus of the analysis here on the first 30
+days after registration.</p>
+<pre class="r"><code>retention_30 &lt;- retention %&gt;%
+  filter(days_since_registration &lt;= 30)</code></pre>
+<p>Let’s visulaize.</p>
+<pre class="r"><code>ggplot(retention_30,
+       aes(x = days_since_registration,
+           y = retention_rate)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  labs(
+    title = &quot;Player Retention During the First 30 Days&quot;,
+    x = &quot;Days Since Registration&quot;,
+    y = &quot;Retention Rate&quot;
+  ) +
+  theme_bw()</code></pre>
+<p><img src="p02_files/figure-html/unnamed-chunk-2-1.png" alt="" width="672" /></p>
+<p>This looks good, but Day 0 is making the graph hard to read because
+it is 100%. As expected, retention is highest on the day of registration
+(Day 0), where all users are active.</p>
+<p>Now I will create a second plot that focuses on Days 1–30. This makes
+the early retention pattern easier to interpret and highlights how many
+users return after the first day, first week, and first month.</p>
+<pre class="r"><code>retention_1_30 &lt;- retention_30 %&gt;%
+  filter(days_since_registration &gt; 0)
+
+ggplot(retention_1_30,
+       aes(x = days_since_registration,
+           y = retention_rate)) +
+  geom_line(color = &quot;#2C7FB8&quot;, linewidth = 1.2) +
+  geom_point(color = &quot;#253494&quot;, size = 2.4) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  scale_x_continuous(breaks = seq(1, 30, by = 2)) +
+  labs(
+    title = &quot;Player Retention After Registration&quot;,
+    subtitle = &quot;Daily retention from Day 1 to Day 30&quot;,
+    x = &quot;Days Since Registration&quot;,
+    y = &quot;Retention Rate&quot;,
+    caption = &quot;Day 0 excluded because all users are active on registration day.&quot;
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;, size = 18),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(face = &quot;bold&quot;),
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p02_files/figure-html/plot%20excluding%20day%200-1.png" alt="" width="672" /></p>
+<pre class="r"><code>key_retention_days &lt;- retention %&gt;%
+  filter(days_since_registration %in% c(1, 7, 30))
+
+key_retention_days</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   days_since_registration returning_users retention_rate
+##                     &lt;dbl&gt;           &lt;int&gt;          &lt;dbl&gt;
+## 1                       1           20071         0.0201
+## 2                       7           58140         0.0581
+## 3                      30           26971         0.0270</code></pre>
+<p>After excluding Day 0, retention shows an initial increase during the
+first week, peaking around Day 6 before gradually declining through Day
+30. Day 1 retention was approximately 2.0%, Day 7 retention was
+approximately 5.8%, and Day 30 retention was approximately 2.7%.</p>
+<p>This suggests that users may not return immediately after
+registration, but a subset becomes more active during the first week
+before engagement gradually drops off.</p>
+<p>From a product perspective, the increase in retention during the
+first week suggests that users may be returning after some delay rather
+than immediately after registration.</p>
+<p>This could reflect onboarding timing, early-game progression,
+scheduled rewards, or notification/event cycles. The decline after the
+first week suggests a potential opportunity to improve longer-term
+engagement.</p>
+<p>Let me add a cleaner summary table.</p>
+<pre class="r"><code>retention_summary &lt;- retention %&gt;%
+  filter(days_since_registration %in% c(1, 3, 7, 14, 30)) %&gt;%
+  mutate(
+    retention_percent = scales::percent(retention_rate, accuracy = 0.1)
+  )
+
+retention_summary</code></pre>
+<pre><code>## # A tibble: 5 × 4
+##   days_since_registration returning_users retention_rate retention_percent
+##                     &lt;dbl&gt;           &lt;int&gt;          &lt;dbl&gt; &lt;chr&gt;            
+## 1                       1           20071         0.0201 2.0%             
+## 2                       3           46338         0.0463 4.6%             
+## 3                       7           58140         0.0581 5.8%             
+## 4                      14           44726         0.0447 4.5%             
+## 5                      30           26971         0.0270 2.7%</code></pre>
+<p>Now, I will make a bar chart for key retention dates.</p>
+<pre class="r"><code>ggplot(retention_summary,
+       aes(x = factor(days_since_registration),
+           y = retention_rate,
+           fill = factor(days_since_registration))) +
+  geom_col(width = 0.65) +
+  geom_text(
+    aes(label = retention_percent),
+    vjust = -0.4,
+    size = 4
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  scale_fill_brewer(palette = &quot;Blues&quot;) +
+  labs(
+    title = &quot;Key Retention Benchmarks&quot;,
+    subtitle = &quot;Retention on Days 1, 3, 7, 14, and 30&quot;,
+    x = &quot;Days Since Registration&quot;,
+    y = &quot;Retention Rate&quot;,
+    caption = &quot;Retention calculated as unique returning users divided by total registered users.&quot;
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;, size = 18),
+    axis.title = element_text(face = &quot;bold&quot;),
+    legend.position = &quot;none&quot;,
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p02_files/figure-html/unnamed-chunk-3-1.png" alt="" width="672" /></p>
+<div id="peak-retention-analysis" class="section level3">
+<h3>Peak Retention Analysis</h3>
+<p>The highest retention day was Day 6, with 6.8% retention.</p>
+<pre class="r"><code>peak_retention &lt;- retention_1_30 %&gt;%
+  filter(retention_rate == max(retention_rate))
+
+peak_retention</code></pre>
+<pre><code>## # A tibble: 1 × 3
+##   days_since_registration returning_users retention_rate
+##                     &lt;dbl&gt;           &lt;int&gt;          &lt;dbl&gt;
+## 1                       6           68194         0.0682</code></pre>
+<p>Just to check whether this was an isolated spike or part of a broader
+pattern, I grouped Days 1–30 into four windows. This showed whether the
+Days 5–7 period had consistently higher retention than the surrounding
+periods.</p>
+<pre class="r"><code>retention_windows &lt;- retention_1_30 %&gt;%
+  mutate(
+    window = case_when(
+      days_since_registration %in% 1:4 ~ &quot;Days 1-4&quot;,
+      days_since_registration %in% 5:7 ~ &quot;Days 5-7&quot;,
+      days_since_registration %in% 8:14 ~ &quot;Days 8-14&quot;,
+      days_since_registration %in% 15:30 ~ &quot;Days 15-30&quot;
+    )
+  ) %&gt;%
+  group_by(window) %&gt;%
+  summarise(
+    average_retention = mean(retention_rate),
+    .groups = &quot;drop&quot;
+  )
+
+retention_windows</code></pre>
+<pre><code>## # A tibble: 4 × 2
+##   window     average_retention
+##   &lt;chr&gt;                  &lt;dbl&gt;
+## 1 Days 1-4              0.0399
+## 2 Days 15-30            0.0358
+## 3 Days 5-7              0.0621
+## 4 Days 8-14             0.0488</code></pre>
+<p>Let’s reorder the table chronologically first.</p>
+<pre class="r"><code>retention_windows &lt;- retention_windows %&gt;%
+  mutate(
+    window = factor(
+      window,
+      levels = c(&quot;Days 1-4&quot;, &quot;Days 5-7&quot;, &quot;Days 8-14&quot;, &quot;Days 15-30&quot;)
+    )
+  )</code></pre>
+<p>Let’s visualize the bar chart once again.</p>
+<pre class="r"><code>ggplot(retention_windows,
+       aes(x = window,
+           y = average_retention,
+           fill = window)) +
+  geom_col(width = 0.65) +
+  geom_text(
+    aes(label = scales::percent(average_retention, accuracy = 0.1)),
+    vjust = -0.4,
+    size = 4
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  scale_fill_brewer(palette = &quot;Blues&quot;) +
+  labs(
+    title = &quot;Average Retention Across Early Engagement Windows&quot;,
+    subtitle = &quot;Retention is highest during Days 5-7&quot;,
+    x = &quot;Days Since Registration&quot;,
+    y = &quot;Average Retention Rate&quot;
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;, size = 18),
+    axis.title = element_text(face = &quot;bold&quot;),
+    legend.position = &quot;none&quot;,
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p02_files/figure-html/unnamed-chunk-7-1.png" alt="" width="672" /></p>
+<p>I grouped retention into early engagement windows. The Days 5-7
+window had the highest average retention (6.2%), compared with Days 1-4
+(4.0%), Days 8-14 (4.9%), and Days 15-30 (3.6%).</p>
+<p>This supports the interpretation that users are most likely to return
+during the first week, especially around Day 6.</p>
+</div>
+</div>
 
 
 

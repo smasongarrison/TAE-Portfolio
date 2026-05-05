@@ -1,5 +1,285 @@
 ---
-title: "Portfolio 2"
+title: "Portfolio 2: Gamelytics: Mobile Game Analytics Challenge 2"
 ---
 
-> The projects should be numbered consecutively (i.e., in the order in which you began them), and should include for each project a description of the goal, the product (computer program, hand graph, computer graph, etc.), the data, and some interpretation. Reports must be reproducible and of high quality in terms of writing, grammar, presentation, etc.
+> Goal:
+For the second portfolio, I am continuing the Gamelytics challenge from Kaggle. Here, according to the challenge, I will examine how often players return to the mobile game after registering by calculating daily retention rates from registration and login data. We have two datasets we are working with where 'reg_data' contains user registration timestamps, and 'auth_data' contains user login timestamps, both with the unique user IDs. 
+
+```{r load package}
+library(tidyverse)
+library(lubridate)
+library(scales)
+```
+
+
+# Import files 
+```{r}
+reg_data <- read_delim(
+  "data/reg_data.csv",
+  delim = ";",
+  escape_double = FALSE,
+  trim_ws = TRUE
+)
+
+auth_data <- read_delim(
+  "data/auth_data.csv",
+  delim = ";",
+  escape_double = FALSE,
+  trim_ws = TRUE
+)
+```
+
+Check data first 
+```{r quick check}
+glimpse(reg_data)
+glimpse(auth_data)
+
+names(reg_data)
+names(auth_data)
+```
+
+We need to convert the timestamps to dates first.
+
+The dataset contains timestamps representing registration and login times in numeric format. These values are not directly interpretable, so they were converted into calendar dates. This step allows us to meaningfully calculate the number of days between registration and subsequent user activity.
+
+```{r convert timestamps}
+library(lubridate)
+
+reg_data <- reg_data %>%
+  mutate(reg_date = as.Date(as_datetime(reg_ts)))
+
+auth_data <- auth_data %>%
+  mutate(auth_date = as.Date(as_datetime(auth_ts)))
+```
+
+```{r check timestamps}
+head(reg_data)
+head(auth_data)
+```
+
+Join the datasets
+```{r join}
+login_data <- auth_data %>%
+  left_join(reg_data, by = "uid")
+```
+
+First, I will calculate the days since registration
+
+To measure retention, I will compute the number of days between each user's registration date and their subsequent login events. This variable, “days since registration,” allows us to track user return behavior over time and identify when users are most likely to disengage.
+
+```{r calculate registration day}
+login_data <- login_data %>%
+  mutate(days_since_registration = as.numeric(auth_date - reg_date))
+head(login_data)
+```
+
+Now we will calculate the daily retention
+
+```{r daily retention}
+total_users <- n_distinct(reg_data$uid)
+
+retention <- login_data %>%
+  filter(days_since_registration >= 0) %>%
+  group_by(days_since_registration) %>%
+  summarise(
+    returning_users = n_distinct(uid)
+  ) %>%
+  mutate(
+    retention_rate = returning_users / total_users
+  )
+
+head(retention)
+```
+
+Because early user behavior is the most informative for product evaluation, I will narrow the focus of the analysis here on the first 30 days after registration. 
+
+```{r first 30 days}
+retention_30 <- retention %>%
+  filter(days_since_registration <= 30)
+```
+
+Let's visulaize. 
+
+```{r}
+ggplot(retention_30,
+       aes(x = days_since_registration,
+           y = retention_rate)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  labs(
+    title = "Player Retention During the First 30 Days",
+    x = "Days Since Registration",
+    y = "Retention Rate"
+  ) +
+  theme_bw()
+```
+
+This looks good, but Day 0 is making the graph hard to read because it is 100%. As expected, retention is highest on the day of registration (Day 0), where all users are active.
+
+Now I will create a second plot that focuses on Days 1–30. This makes the early retention pattern easier to interpret and highlights how many users return after the first day, first week, and first month.
+
+```{r plot excluding day 0}
+retention_1_30 <- retention_30 %>%
+  filter(days_since_registration > 0)
+
+ggplot(retention_1_30,
+       aes(x = days_since_registration,
+           y = retention_rate)) +
+  geom_line(color = "#2C7FB8", linewidth = 1.2) +
+  geom_point(color = "#253494", size = 2.4) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  scale_x_continuous(breaks = seq(1, 30, by = 2)) +
+  labs(
+    title = "Player Retention After Registration",
+    subtitle = "Daily retention from Day 1 to Day 30",
+    x = "Days Since Registration",
+    y = "Retention Rate",
+    caption = "Day 0 excluded because all users are active on registration day."
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+```
+
+
+```{r key retention}
+key_retention_days <- retention %>%
+  filter(days_since_registration %in% c(1, 7, 30))
+
+key_retention_days
+```
+
+After excluding Day 0, retention shows an initial increase during the first week, peaking around Day 6 before gradually declining through Day 30. Day 1 retention was approximately 2.0%, Day 7 retention was approximately 5.8%, and Day 30 retention was approximately 2.7%. 
+
+This suggests that users may not return immediately after registration, but a subset becomes more active during the first week before engagement gradually drops off.
+
+From a product perspective, the increase in retention during the first week suggests that users may be returning after some delay rather than immediately after registration. 
+
+This could reflect onboarding timing, early-game progression, scheduled rewards, or notification/event cycles. The decline after the first week suggests a potential opportunity to improve longer-term engagement.
+
+Let me add a cleaner summary table. 
+
+```{r summary table}
+retention_summary <- retention %>%
+  filter(days_since_registration %in% c(1, 3, 7, 14, 30)) %>%
+  mutate(
+    retention_percent = scales::percent(retention_rate, accuracy = 0.1)
+  )
+
+retention_summary
+```
+
+Now, I will make a bar chart for key retention dates. 
+
+```{r}
+ggplot(retention_summary,
+       aes(x = factor(days_since_registration),
+           y = retention_rate,
+           fill = factor(days_since_registration))) +
+  geom_col(width = 0.65) +
+  geom_text(
+    aes(label = retention_percent),
+    vjust = -0.4,
+    size = 4
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  scale_fill_brewer(palette = "Blues") +
+  labs(
+    title = "Key Retention Benchmarks",
+    subtitle = "Retention on Days 1, 3, 7, 14, and 30",
+    x = "Days Since Registration",
+    y = "Retention Rate",
+    caption = "Retention calculated as unique returning users divided by total registered users."
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    axis.title = element_text(face = "bold"),
+    legend.position = "none",
+    panel.grid.minor = element_blank()
+  )
+```
+
+
+### Peak Retention Analysis
+
+The highest retention day was Day 6, with 6.8% retention.
+
+```{r}
+peak_retention <- retention_1_30 %>%
+  filter(retention_rate == max(retention_rate))
+
+peak_retention
+```
+
+Just to check whether this was an isolated spike or part of a broader pattern, I grouped Days 1–30 into four windows. This showed whether the Days 5–7 period had consistently higher retention than the surrounding periods.
+
+```{r}
+retention_windows <- retention_1_30 %>%
+  mutate(
+    window = case_when(
+      days_since_registration %in% 1:4 ~ "Days 1-4",
+      days_since_registration %in% 5:7 ~ "Days 5-7",
+      days_since_registration %in% 8:14 ~ "Days 8-14",
+      days_since_registration %in% 15:30 ~ "Days 15-30"
+    )
+  ) %>%
+  group_by(window) %>%
+  summarise(
+    average_retention = mean(retention_rate),
+    .groups = "drop"
+  )
+
+retention_windows
+```
+
+Let's reorder the table chronologically first. 
+
+```{r}
+retention_windows <- retention_windows %>%
+  mutate(
+    window = factor(
+      window,
+      levels = c("Days 1-4", "Days 5-7", "Days 8-14", "Days 15-30")
+    )
+  )
+```
+
+Let's visualize the bar chart once again. 
+
+```{r}
+ggplot(retention_windows,
+       aes(x = window,
+           y = average_retention,
+           fill = window)) +
+  geom_col(width = 0.65) +
+  geom_text(
+    aes(label = scales::percent(average_retention, accuracy = 0.1)),
+    vjust = -0.4,
+    size = 4
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  scale_fill_brewer(palette = "Blues") +
+  labs(
+    title = "Average Retention Across Early Engagement Windows",
+    subtitle = "Retention is highest during Days 5-7",
+    x = "Days Since Registration",
+    y = "Average Retention Rate"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    axis.title = element_text(face = "bold"),
+    legend.position = "none",
+    panel.grid.minor = element_blank()
+  )
+```
+
+I grouped retention into early engagement windows. The Days 5-7 window had the highest average retention (6.2%), compared with Days 1-4 (4.0%), Days 8-14 (4.9%), and Days 15-30 (3.6%). 
+
+This supports the interpretation that users are most likely to return during the first week, especially around Day 6.
