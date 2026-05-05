@@ -5,6 +5,7 @@ title: "Portfolio 1: Gamelytics: Mobile Game Analytics Challenge 1"
 > Goal:
 For the first portfolio, the goal is to use some of the tools we have learned in earlier modules and more to clean, summarize, and visualize a Gamelytics dataset from Kaggle. I will also try to evaluate whether a new promotional offer(the test group) improves user (player) outcomes compared to the current offer (control group) using A/B testing for the conversion rate and revenue per use, as suggested as part of the Kaggle challenges for this dataset. For the purpose of this protfolio, we are going to assume the revenue is in dollars as there is no indication of currency in the description. 
 
+Here is the link for the Kaggle Challenge: https://www.kaggle.com/datasets/debs2x/gamelytics-mobile-analytics-challenge?select=ab_test.csv 
 
 #Will start by loading all the packages I may be using for this. 
 

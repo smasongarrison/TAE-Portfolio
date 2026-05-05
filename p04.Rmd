@@ -3,3 +3,13 @@ title: "Portfolio 4"
 ---
 
 > The projects should be numbered consecutively (i.e., in the order in which you began them), and should include for each project a description of the goal, the product (computer program, hand graph, computer graph, etc.), the data, and some interpretation. Reports must be reproducible and of high quality in terms of writing, grammar, presentation, etc.
+
+```{r}
+library(tidyverse)
+
+eye <- read_delim("data/ia_Paragraph_ordinary")
+
+glimpse(eye)
+names(eye)
+```
+
