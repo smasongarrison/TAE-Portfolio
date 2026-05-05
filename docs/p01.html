@@ -11,9 +11,9 @@
 
 
 
-<title>Portfolio 1: Gamelytics: Mobile Game Analytics Challenge</title>
+<title>Portfolio 1: Gamelytics: Mobile Game Analytics Challenge 1</title>
 
-<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.31/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
@@ -291,7 +291,7 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">Portfolio 1: Gamelytics: Mobile Game
-Analytics Challenge</h1>
+Analytics Challenge 1</h1>
 
 </div>
 
@@ -313,8 +313,13 @@ library(tidyr)
 library(ggplot2)</code></pre>
 <p>#Import a/b test data (csv, separated by semicolon; used delim)</p>
 <pre class="r"><code>library(readr)
-ab_test &lt;- read_delim(&quot;C:/Users/psy_user/Downloads/Data science/ab_test.csv&quot;, 
-    delim = &quot;;&quot;, escape_double = FALSE, trim_ws = TRUE)</code></pre>
+
+ab_test &lt;- read_delim(
+  &quot;data/ab_test.csv&quot;,
+  delim = &quot;;&quot;,
+  escape_double = FALSE,
+  trim_ws = TRUE
+)</code></pre>
 <pre><code>## Rows: 404770 Columns: 3
 ## ── Column specification ────────────────────────────────────────────────────────
 ## Delimiter: &quot;;&quot;
@@ -516,7 +521,7 @@ prop_result</code></pre>
 ## sample estimates:
 ##      prop 1      prop 2 
 ## 0.009539690 0.008906235</code></pre>
-<p>From the analysis, we can see that a to sample test for equality of
+<p>From the analysis, we can see that a sample test for equality of
 proportions shows that the conversion rate for Group A (~0.95%) was
 significantly higher than in group B (~0.89%), χ²(1) = 4.37, p = .036.
 However, the magnitude of the effect is still very small (only about
@@ -553,8 +558,8 @@ determining the appropriate metrics for a robust evaluation.</p>
 400,000 users. Group A resulted in a slighlty higher percentage of
 paying users (0.95% vs 0.89%). While the difference was statistically
 significant (perhaps due to the large size), the absolute difference
-between the two groups was only 0.06%.In terms of revenue generated per
-user, Group B generated slightly higher averga revenue ($26.75 vs
+between the two groups was only 0.06%. In terms of revenue generated per
+user, Group B generated slightly higher average revenue ($26.75 vs
 $25.41), but this difference wasn’t found to be statistically
 significant. Overall, I would argue that there is no strong evidence
 that either offer meaningfully outperforms the other in revenue

@@ -1,5 +1,5 @@
 ---
-title: "Portfolio 1: Gamelytics: Mobile Game Analytics Challenge"
+title: "Portfolio 1: Gamelytics: Mobile Game Analytics Challenge 1"
 ---
 
 > Goal:
@@ -18,8 +18,14 @@ library(ggplot2)
 #Import a/b test data (csv, separated by semicolon; used delim)
 ```{r import-dataset}
 library(readr)
-ab_test <- read_delim("C:/Users/psy_user/Downloads/Data science/ab_test.csv", 
-    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+ab_test <- read_delim(
+  "data/ab_test.csv",
+  delim = ";",
+  escape_double = FALSE,
+  trim_ws = TRUE
+)
+
 View(ab_test)
 ```
 
