@@ -1,15 +1,240 @@
 ---
-title: "Portfolio 4"
+title: "Portfolio 4: Exploratory Analysis of Reading Attention Patterns"
 ---
 
-> The projects should be numbered consecutively (i.e., in the order in which you began them), and should include for each project a description of the goal, the product (computer program, hand graph, computer graph, etc.), the data, and some interpretation. Reports must be reproducible and of high quality in terms of writing, grammar, presentation, etc.
+> Goal:
+For this piece, I wanted to do something a bit related to my research area. The dataset comes from the OneStop Eye Movements corpus (Berzak et al., 2025), a large-scale eye-tracking study published in Scientific Data that collected gaze data from 360 participants reading news articles. I am only analyzing interest area metrics, pre-defined regions of text. The goal is to examine how readers allocate visual attention across different regions of text, using eye-tracking data to identify patterns in reading behavior. If the data allows, I also want to try to examine whether early visual attention predicts overall attention during reading. Using the eye-tracking interest data, I compare first fixation duration as an early attention measure with total dwell time as a broader measure of attention. This is something that is very similar to my research, so I am excited to see how it turns out!
 
-```{r}
+### Load Dataset
+
+```{r load dataset}
 library(tidyverse)
 
-eye <- read_delim("data/ia_Paragraph_ordinary")
-
-glimpse(eye)
-names(eye)
+eye <- read_delim("data/ia_Paragraph_ordinary.csv")
 ```
 
+### Select Relevant Variables
+
+I will start by reducing the dataset to the variables needed for this analysis. This keeps the project focused and makes the data easier to work with.
+
+```{r keep only essential variables}
+library(tidyverse)
+
+eye_simple <- eye %>%
+  select(
+    participant_id,
+    TRIAL_INDEX,
+    IA_ID,
+    IA_LABEL,
+    IA_DWELL_TIME,
+    IA_FIXATION_COUNT,
+    IA_FIRST_FIXATION_DURATION
+  )
+glimpse(eye_simple)
+```
+
+### Convert Eye-Tracking Measures to Numeric Values
+
+When importing the eye-tracking variables, some were imported as text, even though they represent numeric values. So, I will convert them to numeric format first so they can be summarized, visualized, and used in my analysis.
+
+```{r convert to numeric}
+eye_simple <- eye_simple %>%
+  mutate(
+    dwell_time = as.numeric(IA_DWELL_TIME),
+    fixation_count = as.numeric(IA_FIXATION_COUNT),
+    first_fixation_duration = as.numeric(IA_FIRST_FIXATION_DURATION)
+  )
+```
+
+### Remove Missing or Non-Fixated Observations
+
+Some interest areas were not fixated, meaning there was no first fixation duration or dwell time. So, I will remove rows with missing or zero values for the main measures so that the analysis focuses only on regions that received measurable visual attention.
+
+```{r remove unusable rows}
+eye_clean <- eye_simple %>%
+  filter(
+    !is.na(dwell_time),
+    !is.na(first_fixation_duration),
+    !is.na(fixation_count),
+    dwell_time > 0,
+    first_fixation_duration > 0,
+    fixation_count > 0
+  )
+```
+
+### Check Dataset Size After Cleaning
+
+```{r}
+nrow(eye_simple)
+nrow(eye_clean)
+```
+
+### Create Smaller Samples for Analysis and Plotting
+
+After cleaning, the dataset contained 710,927 usable observations. To keep the analysis computationally manageable, I used a random sample of 50,000 observations for analysis and 5,000 observations for plotting.
+
+```{r manageable data}
+set.seed(123)
+
+eye_analysis <- eye_clean %>%
+  slice_sample(n = 50000)
+
+eye_plot <- eye_analysis %>%
+  slice_sample(n = 5000)
+```
+
+### Descriptive Summary of Eye-Tracking Measures
+
+Let's first summarize the main eye-tracking variables to understand the range and typical values in the sample.
+
+```{r summary}
+eye_summary <- eye_analysis %>%
+  summarise(
+    n_observations = n(),
+    n_participants = n_distinct(participant_id),
+    avg_dwell_time = mean(dwell_time),
+    avg_first_fixation = mean(first_fixation_duration),
+    avg_fixation_count = mean(fixation_count),
+    median_dwell_time = median(dwell_time),
+    median_first_fixation = median(first_fixation_duration)
+  )
+
+eye_summary
+```
+
+### Which interest areas receive the most attention?
+
+First, let's explore which words or interest areas receive the highest average dwell time. This helps identify where readers spend the most visual attention.
+
+```{r interest areas highest dwell time}
+top_interest_areas <- eye_analysis %>%
+  group_by(IA_LABEL) %>%
+  summarise(
+    avg_dwell_time = mean(dwell_time),
+    n_observations = n(),
+    .groups = "drop"
+  ) %>%
+  filter(n_observations > 20) %>%
+  arrange(desc(avg_dwell_time)) %>%
+  slice_head(n = 15)
+
+ggplot(top_interest_areas,
+       aes(x = reorder(IA_LABEL, avg_dwell_time),
+           y = avg_dwell_time)) +
+  geom_col(fill = "#4C72B0") +
+  coord_flip() +
+  labs(
+    title = "Interest Areas With Highest Average Dwell Time",
+    subtitle = "Top 15 words/regions by average visual attention",
+    x = "Interest Area Label",
+    y = "Average Dwell Time (ms)"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+The words/interest areas with the highest average dwell times include longer or more information-rich terms such as `Northumberland,` `International,` `French-made,` and `scientists.` 
+
+### How much do readers vary?
+
+Now, let's summarize each participant’s average dwell time to examine individual differences in reading attention.
+
+```{r}
+participant_attention <- eye_analysis %>%
+  group_by(participant_id) %>%
+  summarise(
+    avg_dwell_time = mean(dwell_time),
+    avg_first_fixation = mean(first_fixation_duration),
+    avg_fixation_count = mean(fixation_count),
+    .groups = "drop"
+  )
+
+ggplot(participant_attention,
+       aes(x = avg_dwell_time)) +
+  geom_histogram(bins = 30, fill = "#DD8452", color = "white") +
+  labs(
+    title = "Reader Variability in Average Dwell Time",
+    subtitle = "Distribution of participant-level average attention",
+    x = "Average Dwell Time (ms)",
+    y = "Number of Participants"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+The participant-level histogram shows meaningful individual differences in average dwell time. Most readers cluster around roughly `250–400 ms`, but a few participants show much higher average dwell times. 
+
+Now that we havee explored which regions receive the most attention and how readers vary, let's test whether early attention predicts total attention. Specifically, I am trying to examine whether first fixation duration is associated with total dwell time.
+
+### Early Attention and Total Attention
+
+I am going to use a scatterplot to show whether interest areas with longer first fixations also tend to have longer total dwell times
+
+```{r}
+ggplot(eye_plot,
+       aes(x = first_fixation_duration,
+           y = dwell_time)) +
+  geom_point(alpha = 0.2, color = "#4C72B0") +
+  geom_smooth(method = "lm", se = TRUE, color = "#DD8452") +
+  labs(
+    title = "Early Attention and Total Dwell Time",
+    subtitle = "First fixation duration compared with total dwell time",
+    x = "First Fixation Duration (ms)",
+    y = "Total Dwell Time (ms)"
+  ) +
+  theme_minimal(base_size = 13)
+```
+
+Ok, our scatterplot shows a positive relationship between first fixation duration and total dwell time. 
+
+Interest areas that received longer initial fixations also tend to receive longer overall dwell time, suggesting that early attention is associated with sustained attention during reading.
+
+### Correlation 
+
+Now, let's test whether first fixation duration and total dwell time are correlated. 
+
+```{r correlation}
+cor_result <- cor.test(
+  eye_analysis$first_fixation_duration,
+  eye_analysis$dwell_time
+)
+
+cor_result
+```
+
+Pearson correlation shows a moderate positive relationship between first fixation duration and dwell time, r = .40, p < .001. 
+
+This suggests that words or interest areas that attract longer early fixations also tend to receive more total attention.
+
+### Regression 
+
+```{r model1}
+model_1 <- lm(dwell_time ~ first_fixation_duration, data = eye_analysis)
+
+summary(model_1)
+```
+
+In the simple regression model, first fixation duration significantly predicted total dwell time. For each additional millisecond of first fixation duration, dwell time increased by approximately 1.18 ms. 
+
+This model explained about 16% of the variance in dwell time.
+
+Let's add fixation count to the model now!
+
+```{r model2}
+model_2 <- lm(dwell_time ~ first_fixation_duration + fixation_count,
+              data = eye_analysis)
+
+summary(model_2)
+```
+
+When adding fixation count to the model, prediction improved a lot!
+
+First fixation duration and fixation count together explained about 89.5% of the variance in dwell time. 
+
+This suggests that total dwell time is strongly driven by both the duration of early attention and the number of fixations made on an interest area.
+
+But on a second thouht, there might be a caveat! Because fixation count is closely related to dwell time by definition, this second model should be interpreted carefully. It is useful for showing that total reading time reflects both fixation duration and number of fixations, but fixation count is not fully independent from the outcome.
+
+### Conclusion
+
+Overall, this analysis suggests that visual attention during reading is not evenly distributed across words or readers. Some interest areas receive substantially more dwell time, and readers vary in their average attention patterns. 
+
+The correlation and regression analyses also show that first fixation duration is positively associated with total dwell time, suggesting that early attention may help predict sustained attention during reading.

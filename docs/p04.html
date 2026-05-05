@@ -11,9 +11,9 @@
 
 
 
-<title>Portfolio 4</title>
+<title>Portfolio 4: Exploratory Analysis of Reading Attention Patterns</title>
 
-<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.31/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
@@ -290,18 +290,355 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Portfolio 4</h1>
+<h1 class="title toc-ignore">Portfolio 4: Exploratory Analysis of
+Reading Attention Patterns</h1>
 
 </div>
 
 
 <blockquote>
-<p>The projects should be numbered consecutively (i.e., in the order in
-which you began them), and should include for each project a description
-of the goal, the product (computer program, hand graph, computer graph,
-etc.), the data, and some interpretation. Reports must be reproducible
-and of high quality in terms of writing, grammar, presentation, etc.</p>
+<p>Goal: For this piece, I wanted to do something a bit related to my
+research area. The dataset comes from the OneStop Eye Movements corpus
+(Berzak et al., 2025), a large-scale eye-tracking study published in
+Scientific Data that collected gaze data from 360 participants reading
+news articles. I am only analyzing interest area metrics, pre-defined
+regions of text. The goal is to examine how readers allocate visual
+attention across different regions of text, using eye-tracking data to
+identify patterns in reading behavior. If the data allows, I also want
+to try to examine whether early visual attention predicts overall
+attention during reading. Using the eye-tracking interest data, I
+compare first fixation duration as an early attention measure with total
+dwell time as a broader measure of attention. This is something that is
+very similar to my research, so I am excited to see how it turns
+out!</p>
 </blockquote>
+<div id="load-dataset" class="section level3">
+<h3>Load Dataset</h3>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.2.0     ✔ readr     2.2.0
+## ✔ forcats   1.0.1     ✔ stringr   1.6.0
+## ✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+## ✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+## ✔ purrr     1.2.1     
+## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>eye &lt;- read_delim(&quot;data/ia_Paragraph_ordinary.csv&quot;)</code></pre>
+<pre><code>## Rows: 1104883 Columns: 157
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (102): participant_id, EYE_REPORTED, EYE_TRACKED, IA_AVERAGE_FIX_PUPIL_S...
+## dbl  (51): TRIAL_INDEX, IA_AREA, IA_BOTTOM, IA_DWELL_TIME, IA_DWELL_TIME_%, ...
+## lgl   (4): question_preview, practice_trial, repeated_reading_trial, is_correct
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+</div>
+<div id="select-relevant-variables" class="section level3">
+<h3>Select Relevant Variables</h3>
+<p>I will start by reducing the dataset to the variables needed for this
+analysis. This keeps the project focused and makes the data easier to
+work with.</p>
+<pre class="r"><code>library(tidyverse)
+
+eye_simple &lt;- eye %&gt;%
+  select(
+    participant_id,
+    TRIAL_INDEX,
+    IA_ID,
+    IA_LABEL,
+    IA_DWELL_TIME,
+    IA_FIXATION_COUNT,
+    IA_FIRST_FIXATION_DURATION
+  )
+glimpse(eye_simple)</code></pre>
+<pre><code>## Rows: 1,104,883
+## Columns: 7
+## $ participant_id             &lt;chr&gt; &quot;l59_485&quot;, &quot;l59_485&quot;, &quot;l59_485&quot;, &quot;l59_485&quot;,…
+## $ TRIAL_INDEX                &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
+## $ IA_ID                      &lt;dbl&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, …
+## $ IA_LABEL                   &lt;chr&gt; &quot;Leading&quot;, &quot;water&quot;, &quot;scientists&quot;, &quot;have&quot;, &quot;…
+## $ IA_DWELL_TIME              &lt;dbl&gt; 2171, 876, 640, 586, 0, 0, 0, 0, 528, 384, …
+## $ IA_FIXATION_COUNT          &lt;dbl&gt; 9, 4, 3, 2, 0, 0, 0, 0, 2, 2, 0, 1, 2, 0, 2…
+## $ IA_FIRST_FIXATION_DURATION &lt;chr&gt; &quot;311&quot;, &quot;292&quot;, &quot;191&quot;, &quot;271&quot;, &quot;.&quot;, &quot;.&quot;, &quot;.&quot;, …</code></pre>
+</div>
+<div id="convert-eye-tracking-measures-to-numeric-values"
+class="section level3">
+<h3>Convert Eye-Tracking Measures to Numeric Values</h3>
+<p>When importing the eye-tracking variables, some were imported as
+text, even though they represent numeric values. So, I will convert them
+to numeric format first so they can be summarized, visualized, and used
+in my analysis.</p>
+<pre class="r"><code>eye_simple &lt;- eye_simple %&gt;%
+  mutate(
+    dwell_time = as.numeric(IA_DWELL_TIME),
+    fixation_count = as.numeric(IA_FIXATION_COUNT),
+    first_fixation_duration = as.numeric(IA_FIRST_FIXATION_DURATION)
+  )</code></pre>
+<pre><code>## Warning: There was 1 warning in `mutate()`.
+## ℹ In argument: `first_fixation_duration =
+##   as.numeric(IA_FIRST_FIXATION_DURATION)`.
+## Caused by warning:
+## ! NAs introduced by coercion</code></pre>
+</div>
+<div id="remove-missing-or-non-fixated-observations"
+class="section level3">
+<h3>Remove Missing or Non-Fixated Observations</h3>
+<p>Some interest areas were not fixated, meaning there was no first
+fixation duration or dwell time. So, I will remove rows with missing or
+zero values for the main measures so that the analysis focuses only on
+regions that received measurable visual attention.</p>
+<pre class="r"><code>eye_clean &lt;- eye_simple %&gt;%
+  filter(
+    !is.na(dwell_time),
+    !is.na(first_fixation_duration),
+    !is.na(fixation_count),
+    dwell_time &gt; 0,
+    first_fixation_duration &gt; 0,
+    fixation_count &gt; 0
+  )</code></pre>
+</div>
+<div id="check-dataset-size-after-cleaning" class="section level3">
+<h3>Check Dataset Size After Cleaning</h3>
+<pre class="r"><code>nrow(eye_simple)</code></pre>
+<pre><code>## [1] 1104883</code></pre>
+<pre class="r"><code>nrow(eye_clean)</code></pre>
+<pre><code>## [1] 710927</code></pre>
+</div>
+<div id="create-smaller-samples-for-analysis-and-plotting"
+class="section level3">
+<h3>Create Smaller Samples for Analysis and Plotting</h3>
+<p>After cleaning, the dataset contained 710,927 usable observations. To
+keep the analysis computationally manageable, I used a random sample of
+50,000 observations for analysis and 5,000 observations for
+plotting.</p>
+<pre class="r"><code>set.seed(123)
+
+eye_analysis &lt;- eye_clean %&gt;%
+  slice_sample(n = 50000)
+
+eye_plot &lt;- eye_analysis %&gt;%
+  slice_sample(n = 5000)</code></pre>
+</div>
+<div id="descriptive-summary-of-eye-tracking-measures"
+class="section level3">
+<h3>Descriptive Summary of Eye-Tracking Measures</h3>
+<p>Let’s first summarize the main eye-tracking variables to understand
+the range and typical values in the sample.</p>
+<pre class="r"><code>eye_summary &lt;- eye_analysis %&gt;%
+  summarise(
+    n_observations = n(),
+    n_participants = n_distinct(participant_id),
+    avg_dwell_time = mean(dwell_time),
+    avg_first_fixation = mean(first_fixation_duration),
+    avg_fixation_count = mean(fixation_count),
+    median_dwell_time = median(dwell_time),
+    median_first_fixation = median(first_fixation_duration)
+  )
+
+eye_summary</code></pre>
+<pre><code>## # A tibble: 1 × 7
+##   n_observations n_participants avg_dwell_time avg_first_fixation
+##            &lt;int&gt;          &lt;int&gt;          &lt;dbl&gt;              &lt;dbl&gt;
+## 1          50000            180           315.               195.
+## # ℹ 3 more variables: avg_fixation_count &lt;dbl&gt;, median_dwell_time &lt;dbl&gt;,
+## #   median_first_fixation &lt;dbl&gt;</code></pre>
+</div>
+<div id="which-interest-areas-receive-the-most-attention"
+class="section level3">
+<h3>Which interest areas receive the most attention?</h3>
+<p>First, let’s explore which words or interest areas receive the
+highest average dwell time. This helps identify where readers spend the
+most visual attention.</p>
+<pre class="r"><code>top_interest_areas &lt;- eye_analysis %&gt;%
+  group_by(IA_LABEL) %&gt;%
+  summarise(
+    avg_dwell_time = mean(dwell_time),
+    n_observations = n(),
+    .groups = &quot;drop&quot;
+  ) %&gt;%
+  filter(n_observations &gt; 20) %&gt;%
+  arrange(desc(avg_dwell_time)) %&gt;%
+  slice_head(n = 15)
+
+ggplot(top_interest_areas,
+       aes(x = reorder(IA_LABEL, avg_dwell_time),
+           y = avg_dwell_time)) +
+  geom_col(fill = &quot;#4C72B0&quot;) +
+  coord_flip() +
+  labs(
+    title = &quot;Interest Areas With Highest Average Dwell Time&quot;,
+    subtitle = &quot;Top 15 words/regions by average visual attention&quot;,
+    x = &quot;Interest Area Label&quot;,
+    y = &quot;Average Dwell Time (ms)&quot;
+  ) +
+  theme_minimal(base_size = 13)</code></pre>
+<p><img src="p04_files/figure-html/interest%20areas%20highest%20dwell%20time-1.png" alt="" width="672" /></p>
+<p>The words/interest areas with the highest average dwell times include
+longer or more information-rich terms such as
+<code>Northumberland,</code> <code>International,</code>
+<code>French-made,</code> and <code>scientists.</code></p>
+</div>
+<div id="how-much-do-readers-vary" class="section level3">
+<h3>How much do readers vary?</h3>
+<p>Now, let’s summarize each participant’s average dwell time to examine
+individual differences in reading attention.</p>
+<pre class="r"><code>participant_attention &lt;- eye_analysis %&gt;%
+  group_by(participant_id) %&gt;%
+  summarise(
+    avg_dwell_time = mean(dwell_time),
+    avg_first_fixation = mean(first_fixation_duration),
+    avg_fixation_count = mean(fixation_count),
+    .groups = &quot;drop&quot;
+  )
+
+ggplot(participant_attention,
+       aes(x = avg_dwell_time)) +
+  geom_histogram(bins = 30, fill = &quot;#DD8452&quot;, color = &quot;white&quot;) +
+  labs(
+    title = &quot;Reader Variability in Average Dwell Time&quot;,
+    subtitle = &quot;Distribution of participant-level average attention&quot;,
+    x = &quot;Average Dwell Time (ms)&quot;,
+    y = &quot;Number of Participants&quot;
+  ) +
+  theme_minimal(base_size = 13)</code></pre>
+<p><img src="p04_files/figure-html/unnamed-chunk-2-1.png" alt="" width="672" /></p>
+<p>The participant-level histogram shows meaningful individual
+differences in average dwell time. Most readers cluster around roughly
+<code>250–400 ms</code>, but a few participants show much higher average
+dwell times.</p>
+<p>Now that we havee explored which regions receive the most attention
+and how readers vary, let’s test whether early attention predicts total
+attention. Specifically, I am trying to examine whether first fixation
+duration is associated with total dwell time.</p>
+</div>
+<div id="early-attention-and-total-attention" class="section level3">
+<h3>Early Attention and Total Attention</h3>
+<p>I am going to use a scatterplot to show whether interest areas with
+longer first fixations also tend to have longer total dwell times</p>
+<pre class="r"><code>ggplot(eye_plot,
+       aes(x = first_fixation_duration,
+           y = dwell_time)) +
+  geom_point(alpha = 0.2, color = &quot;#4C72B0&quot;) +
+  geom_smooth(method = &quot;lm&quot;, se = TRUE, color = &quot;#DD8452&quot;) +
+  labs(
+    title = &quot;Early Attention and Total Dwell Time&quot;,
+    subtitle = &quot;First fixation duration compared with total dwell time&quot;,
+    x = &quot;First Fixation Duration (ms)&quot;,
+    y = &quot;Total Dwell Time (ms)&quot;
+  ) +
+  theme_minimal(base_size = 13)</code></pre>
+<pre><code>## `geom_smooth()` using formula = &#39;y ~ x&#39;</code></pre>
+<p><img src="p04_files/figure-html/unnamed-chunk-3-1.png" alt="" width="672" /></p>
+<p>Ok, our scatterplot shows a positive relationship between first
+fixation duration and total dwell time.</p>
+<p>Interest areas that received longer initial fixations also tend to
+receive longer overall dwell time, suggesting that early attention is
+associated with sustained attention during reading.</p>
+</div>
+<div id="correlation" class="section level3">
+<h3>Correlation</h3>
+<p>Now, let’s see test whether first fixation duration and total dwell
+time are correlated.</p>
+<pre class="r"><code>cor_result &lt;- cor.test(
+  eye_analysis$first_fixation_duration,
+  eye_analysis$dwell_time
+)
+
+cor_result</code></pre>
+<pre><code>## 
+##  Pearson&#39;s product-moment correlation
+## 
+## data:  eye_analysis$first_fixation_duration and eye_analysis$dwell_time
+## t = 97.438, df = 49998, p-value &lt; 2.2e-16
+## alternative hypothesis: true correlation is not equal to 0
+## 95 percent confidence interval:
+##  0.3920900 0.4068231
+## sample estimates:
+##       cor 
+## 0.3994823</code></pre>
+<p>Pearson correlation shows a moderate positive relationship between
+first fixation duration and dwell time, r = .40, p &lt; .001.</p>
+<p>This suggests that words or interest areas that attract longer early
+fixations also tend to receive more total attention.</p>
+</div>
+<div id="regression" class="section level3">
+<h3>Regression</h3>
+<pre class="r"><code>model_1 &lt;- lm(dwell_time ~ first_fixation_duration, data = eye_analysis)
+
+summary(model_1)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = dwell_time ~ first_fixation_duration, data = eye_analysis)
+## 
+## Residuals:
+##    Min     1Q Median     3Q    Max 
+## -345.3 -120.3 -109.5   56.4 4840.4 
+## 
+## Coefficients:
+##                         Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)             85.72198    2.57186   33.33   &lt;2e-16 ***
+## first_fixation_duration  1.17718    0.01208   97.44   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 230.7 on 49998 degrees of freedom
+## Multiple R-squared:  0.1596, Adjusted R-squared:  0.1596 
+## F-statistic:  9494 on 1 and 49998 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>In the simple regression model, first fixation duration significantly
+predicted total dwell time. For each additional millisecond of first
+fixation duration, dwell time increased by approximately 1.18 ms.</p>
+<p>This model explained about 16% of the variance in dwell time.</p>
+<p>Let’s add fixation count to the model now!</p>
+<pre class="r"><code>model_2 &lt;- lm(dwell_time ~ first_fixation_duration + fixation_count,
+              data = eye_analysis)
+
+summary(model_2)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = dwell_time ~ first_fixation_duration + fixation_count, 
+##     data = eye_analysis)
+## 
+## Residuals:
+##    Min     1Q Median     3Q    Max 
+## -929.2   -7.3    4.9    9.8 3401.6 
+## 
+## Coefficients:
+##                           Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)             -2.196e+02  1.043e+00  -210.5   &lt;2e-16 ***
+## first_fixation_duration  1.084e+00  4.265e-03   254.2   &lt;2e-16 ***
+## fixation_count           1.984e+02  3.346e-01   593.1   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 81.39 on 49997 degrees of freedom
+## Multiple R-squared:  0.8954, Adjusted R-squared:  0.8954 
+## F-statistic: 2.14e+05 on 2 and 49997 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>When adding fixation count to the model, prediction improved a
+lot!</p>
+<p>First fixation duration and fixation count together explained about
+89.5% of the variance in dwell time.</p>
+<p>This suggests that total dwell time is strongly driven by both the
+duration of early attention and the number of fixations made on an
+interest area.</p>
+<p>But on a second thouht, there might be a caveat! Because fixation
+count is closely related to dwell time by definition, this second model
+should be interpreted carefully. It is useful for showing that total
+reading time reflects both fixation duration and number of fixations,
+but fixation count is not fully independent from the outcome.</p>
+</div>
+<div id="conclusion" class="section level3">
+<h3>Conclusion</h3>
+<p>Overall, this analysis suggests that visual attention during reading
+is not evenly distributed across words or readers. Some interest areas
+receive substantially more dwell time, and readers vary in their average
+attention patterns.</p>
+<p>The correlation and regression analyses also show that first fixation
+duration is positively associated with total dwell time, suggesting that
+early attention may help predict sustained attention during reading.</p>
+</div>
 
 
 
