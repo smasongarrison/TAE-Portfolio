@@ -11,27 +11,30 @@
 
 
 
-<title>Portfolio 5</title>
+<title>Portfolio 5: Interactive Spotify Track Explorer</title>
 
-<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
-<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="site_libs/header-attrs-2.31/header-attrs.js"></script>
+<script src="site_libs/jquery-3.7.1/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
-<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
-<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
-<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
-<style>h1 {font-size: 34px;}
-       h1.title {font-size: 38px;}
-       h2 {font-size: 30px;}
-       h3 {font-size: 24px;}
-       h4 {font-size: 18px;}
-       h5 {font-size: 16px;}
-       h6 {font-size: 12px;}
-       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
-       pre:not([class]) { background-color: white }</style>
+<link href="site_libs/bootstrap-3.4.1/css/bootstrap.min.css" rel="stylesheet" />
+<link href="site_libs/bootstrap-3.4.1/accessibility/css/bootstrap-accessibility.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.4.1/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.4.1/accessibility/js/bootstrap-accessibility.min.js"></script>
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/selectize-0.15.2/css/selectize.bootstrap3.css" rel="stylesheet" />
+<script src="site_libs/selectize-0.15.2/js/selectize.min.js"></script>
+<script src="site_libs/selectize-0.15.2/accessibility/js/selectize-plugin-a11y.min.js"></script>
+<script src="site_libs/ionrangeslider-javascript-2.3.1/js/ion.rangeSlider.min.js"></script>
+<script src="site_libs/strftime-0.9.2/strftime-min.js"></script>
+<link href="site_libs/ionrangeslider-css-2.3.1/css/ion.rangeSlider.css" rel="stylesheet" />
+<link href="site_libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet" />
+<script src="site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script>
+<link href="site_libs/datatables-css-0.0.0/datatables-crosstalk.css" rel="stylesheet" />
+<script src="site_libs/datatables-binding-0.34.0/datatables.js"></script>
+<link href="site_libs/crosstalk-1.2.2/css/crosstalk.min.css" rel="stylesheet" />
+<script src="site_libs/crosstalk-1.2.2/js/crosstalk.min.js"></script>
 
 <style type="text/css">
   code{white-space: pre-wrap;}
@@ -290,18 +293,521 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Portfolio 5</h1>
+<h1 class="title toc-ignore">Portfolio 5: Interactive Spotify Track
+Explorer</h1>
 
 </div>
 
 
 <blockquote>
-<p>The projects should be numbered consecutively (i.e., in the order in
-which you began them), and should include for each project a description
-of the goal, the product (computer program, hand graph, computer graph,
-etc.), the data, and some interpretation. Reports must be reproducible
-and of high quality in terms of writing, grammar, presentation, etc.</p>
+<p>Goal I wanted to try my luck and create a small interactive data tool
+using R Shiny. I am using a Spotify Tracks dataset from Kaggle. Instead
+of making one static graph, I wanted users to be able to choose a music
+genre and compare different Spotify audio features. My goal is to
+practice building something that feels more like a usable product or
+mini-dashboard, while still keeping the project simple enough to finish
+for my portfolio.</p>
 </blockquote>
+<p>Here is the link to the Kaggle dataset page: <a
+href="https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset?select=dataset.csv"
+class="uri">https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset?select=dataset.csv</a></p>
+<p>Each row in the dataset represents one track. The dataset includes
+song information such as track name, artist, album, genre, and
+popularity. It also includes audio features such as danceability,
+energy, loudness, speechiness, acousticness, instrumentalness, liveness,
+valence, and tempo.</p>
+<p>The main question I explored was:</p>
+<p><strong>How do Spotify track features, such as danceability, energy,
+valence, tempo, and popularity, differ across genres?</strong></p>
+<div id="product" class="section level2">
+<h2>Product</h2>
+<p>The final product is an interactive R Shiny explorer. A user can:</p>
+<ol style="list-style-type: decimal">
+<li>Choose a genre.</li>
+<li>Choose an x-axis feature.</li>
+<li>Choose a y-axis feature.</li>
+<li>Filter tracks by popularity.</li>
+<li>View a plot that updates automatically.</li>
+<li>See the top songs in the selected genre.</li>
+</ol>
+<div id="load-packages" class="section level3">
+<h3>Load packages</h3>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.2.0     ✔ readr     2.2.0
+## ✔ forcats   1.0.1     ✔ stringr   1.6.0
+## ✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+## ✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+## ✔ purrr     1.2.1     
+## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>library(shiny)
+library(DT)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;DT&#39;
+## 
+## The following objects are masked from &#39;package:shiny&#39;:
+## 
+##     dataTableOutput, renderDataTable</code></pre>
+</div>
+<div id="import-dataset" class="section level3">
+<h3>Import dataset</h3>
+<pre class="r"><code>spotify_raw &lt;- read_csv(&quot;data/dataset.csv&quot;, show_col_types = FALSE)</code></pre>
+<pre><code>## New names:
+## • `` -&gt; `...1`</code></pre>
+<pre class="r"><code>glimpse(spotify_raw)</code></pre>
+<pre><code>## Rows: 114,000
+## Columns: 21
+## $ ...1             &lt;dbl&gt; 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,…
+## $ track_id         &lt;chr&gt; &quot;5SuOikwiRyPMVoIQDJUgSV&quot;, &quot;4qPNDBW1i3p13qLCt0Ki3A&quot;, &quot;…
+## $ artists          &lt;chr&gt; &quot;Gen Hoshino&quot;, &quot;Ben Woodward&quot;, &quot;Ingrid Michaelson;ZAY…
+## $ album_name       &lt;chr&gt; &quot;Comedy&quot;, &quot;Ghost (Acoustic)&quot;, &quot;To Begin Again&quot;, &quot;Craz…
+## $ track_name       &lt;chr&gt; &quot;Comedy&quot;, &quot;Ghost - Acoustic&quot;, &quot;To Begin Again&quot;, &quot;Can&#39;…
+## $ popularity       &lt;dbl&gt; 73, 55, 57, 71, 82, 58, 74, 80, 74, 56, 74, 69, 52, 6…
+## $ duration_ms      &lt;dbl&gt; 230666, 149610, 210826, 201933, 198853, 214240, 22940…
+## $ explicit         &lt;lgl&gt; FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALS…
+## $ danceability     &lt;dbl&gt; 0.676, 0.420, 0.438, 0.266, 0.618, 0.688, 0.407, 0.70…
+## $ energy           &lt;dbl&gt; 0.4610, 0.1660, 0.3590, 0.0596, 0.4430, 0.4810, 0.147…
+## $ key              &lt;dbl&gt; 1, 1, 0, 0, 2, 6, 2, 11, 0, 1, 8, 4, 7, 3, 2, 4, 2, 1…
+## $ loudness         &lt;dbl&gt; -6.746, -17.235, -9.734, -18.515, -9.681, -8.807, -8.…
+## $ mode             &lt;dbl&gt; 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0,…
+## $ speechiness      &lt;dbl&gt; 0.1430, 0.0763, 0.0557, 0.0363, 0.0526, 0.1050, 0.035…
+## $ acousticness     &lt;dbl&gt; 0.0322, 0.9240, 0.2100, 0.9050, 0.4690, 0.2890, 0.857…
+## $ instrumentalness &lt;dbl&gt; 1.01e-06, 5.56e-06, 0.00e+00, 7.07e-05, 0.00e+00, 0.0…
+## $ liveness         &lt;dbl&gt; 0.3580, 0.1010, 0.1170, 0.1320, 0.0829, 0.1890, 0.091…
+## $ valence          &lt;dbl&gt; 0.7150, 0.2670, 0.1200, 0.1430, 0.1670, 0.6660, 0.076…
+## $ tempo            &lt;dbl&gt; 87.917, 77.489, 76.332, 181.740, 119.949, 98.017, 141…
+## $ time_signature   &lt;dbl&gt; 4, 4, 4, 3, 4, 4, 3, 4, 4, 4, 4, 3, 4, 4, 4, 3, 4, 4,…
+## $ track_genre      &lt;chr&gt; &quot;acoustic&quot;, &quot;acoustic&quot;, &quot;acoustic&quot;, &quot;acoustic&quot;, &quot;acou…</code></pre>
+</div>
+<div id="clean-the-data" class="section level3">
+<h3>Clean the data</h3>
+<p>I am going to start by selecting the columns that are most useful for
+the app. I want to keep the app simple and avoids overwhelming the user
+with too many variables.</p>
+<pre class="r"><code>spotify &lt;- spotify_raw %&gt;%
+  select(
+    track_name,
+    artists,
+    album_name,
+    popularity,
+    duration_ms,
+    explicit,
+    danceability,
+    energy,
+    loudness,
+    speechiness,
+    acousticness,
+    instrumentalness,
+    liveness,
+    valence,
+    tempo,
+    track_genre
+  ) %&gt;%
+  drop_na(track_name, artists, popularity, danceability, energy, valence, tempo, track_genre)</code></pre>
+<p>I will also convert the duration from milliseconds to minutes because
+minutes are easier to interpret.</p>
+<pre class="r"><code>spotify &lt;- spotify %&gt;%
+  mutate(
+    duration_min = duration_ms / 60000,
+    explicit = if_else(explicit == TRUE, &quot;Explicit&quot;, &quot;Not explicit&quot;)
+  )</code></pre>
+</div>
+<div id="create-a-list-of-features-users-can-choose-from"
+class="section level3">
+<h3>Create a list of features users can choose from</h3>
+<p>These will be the numeric features users will be able to compare in
+the app from the menu. I am choosing features that are meaningful for
+music exploration.</p>
+<p>The names on the left are what the user sees. The names on the right
+are the actual column names in the dataset.</p>
+<pre class="r"><code>feature_choices &lt;- c(
+  &quot;Popularity&quot; = &quot;popularity&quot;,
+  &quot;Danceability&quot; = &quot;danceability&quot;,
+  &quot;Energy&quot; = &quot;energy&quot;,
+  &quot;Valence / Positivity&quot; = &quot;valence&quot;,
+  &quot;Tempo&quot; = &quot;tempo&quot;,
+  &quot;Acousticness&quot; = &quot;acousticness&quot;,
+  &quot;Instrumentalness&quot; = &quot;instrumentalness&quot;,
+  &quot;Speechiness&quot; = &quot;speechiness&quot;,
+  &quot;Liveness&quot; = &quot;liveness&quot;,
+  &quot;Loudness&quot; = &quot;loudness&quot;,
+  &quot;Duration in minutes&quot; = &quot;duration_min&quot;
+)</code></pre>
+<p>I am hoping for the final product to be an interactive Spotify track
+explorer. The user can select a music genre, choose two audio features
+to compare, and filter songs by popularity. The app updates the
+scatterplot and table based on the user’s choices.</p>
+<p>This project helped me practice thinking about data from a user
+perspective. Instead of only creating one static visualization, I
+created a small tool that allows users to explore the dataset
+themselves.</p>
+</div>
+<div id="build-the-shiny-app-interface" class="section level3">
+<h3>Build the Shiny app interface</h3>
+<p>This took some work :/ (hopefully it works!)</p>
+<p>This it to create what the user sees (What I am envisioning).</p>
+<p>The sidebar has:</p>
+<ul>
+<li>genre dropdown</li>
+<li>x-axis dropdown</li>
+<li>y-axis dropdown</li>
+<li>popularity slider</li>
+</ul>
+<p>The main panel has:</p>
+<ul>
+<li>scatterplot</li>
+<li>top songs table</li>
+</ul>
+<pre class="r"><code>fluidPage(
+  titlePanel(&quot;Interactive Spotify Track Explorer&quot;),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        inputId = &quot;genre&quot;,
+        label = &quot;Choose a genre:&quot;,
+        choices = sort(unique(spotify$track_genre)),
+        selected = sort(unique(spotify$track_genre))[1]
+      ),
+      
+      selectInput(
+        inputId = &quot;x_feature&quot;,
+        label = &quot;Choose x-axis feature:&quot;,
+        choices = feature_choices,
+        selected = &quot;danceability&quot;
+      ),
+      
+      selectInput(
+        inputId = &quot;y_feature&quot;,
+        label = &quot;Choose y-axis feature:&quot;,
+        choices = feature_choices,
+        selected = &quot;energy&quot;
+      ),
+      
+      sliderInput(
+        inputId = &quot;popularity_range&quot;,
+        label = &quot;Choose popularity range:&quot;,
+        min = 0,
+        max = 100,
+        value = c(0, 100)
+      )
+    ),
+    
+    mainPanel(
+      plotOutput(&quot;spotify_plot&quot;),
+      br(),
+      h3(&quot;Top Songs in Selected Genre&quot;),
+      DT::DTOutput(&quot;top_songs&quot;)
+    )
+  )
+)</code></pre>
+<div class="container-fluid">
+<h2>Interactive Spotify Track Explorer</h2>
+<div class="row">
+<div class="col-sm-4">
+<form class="well" role="complementary">
+<div class="form-group shiny-input-container">
+<label class="control-label" id="genre-label" for="genre">Choose a genre:</label>
+<div>
+<select id="genre" class="shiny-input-select"><option value="acoustic" selected>acoustic</option>
+<option value="afrobeat">afrobeat</option>
+<option value="alt-rock">alt-rock</option>
+<option value="alternative">alternative</option>
+<option value="ambient">ambient</option>
+<option value="anime">anime</option>
+<option value="black-metal">black-metal</option>
+<option value="bluegrass">bluegrass</option>
+<option value="blues">blues</option>
+<option value="brazil">brazil</option>
+<option value="breakbeat">breakbeat</option>
+<option value="british">british</option>
+<option value="cantopop">cantopop</option>
+<option value="chicago-house">chicago-house</option>
+<option value="children">children</option>
+<option value="chill">chill</option>
+<option value="classical">classical</option>
+<option value="club">club</option>
+<option value="comedy">comedy</option>
+<option value="country">country</option>
+<option value="dance">dance</option>
+<option value="dancehall">dancehall</option>
+<option value="death-metal">death-metal</option>
+<option value="deep-house">deep-house</option>
+<option value="detroit-techno">detroit-techno</option>
+<option value="disco">disco</option>
+<option value="disney">disney</option>
+<option value="drum-and-bass">drum-and-bass</option>
+<option value="dub">dub</option>
+<option value="dubstep">dubstep</option>
+<option value="edm">edm</option>
+<option value="electro">electro</option>
+<option value="electronic">electronic</option>
+<option value="emo">emo</option>
+<option value="folk">folk</option>
+<option value="forro">forro</option>
+<option value="french">french</option>
+<option value="funk">funk</option>
+<option value="garage">garage</option>
+<option value="german">german</option>
+<option value="gospel">gospel</option>
+<option value="goth">goth</option>
+<option value="grindcore">grindcore</option>
+<option value="groove">groove</option>
+<option value="grunge">grunge</option>
+<option value="guitar">guitar</option>
+<option value="happy">happy</option>
+<option value="hard-rock">hard-rock</option>
+<option value="hardcore">hardcore</option>
+<option value="hardstyle">hardstyle</option>
+<option value="heavy-metal">heavy-metal</option>
+<option value="hip-hop">hip-hop</option>
+<option value="honky-tonk">honky-tonk</option>
+<option value="house">house</option>
+<option value="idm">idm</option>
+<option value="indian">indian</option>
+<option value="indie">indie</option>
+<option value="indie-pop">indie-pop</option>
+<option value="industrial">industrial</option>
+<option value="iranian">iranian</option>
+<option value="j-dance">j-dance</option>
+<option value="j-idol">j-idol</option>
+<option value="j-pop">j-pop</option>
+<option value="j-rock">j-rock</option>
+<option value="jazz">jazz</option>
+<option value="k-pop">k-pop</option>
+<option value="kids">kids</option>
+<option value="latin">latin</option>
+<option value="latino">latino</option>
+<option value="malay">malay</option>
+<option value="mandopop">mandopop</option>
+<option value="metal">metal</option>
+<option value="metalcore">metalcore</option>
+<option value="minimal-techno">minimal-techno</option>
+<option value="mpb">mpb</option>
+<option value="new-age">new-age</option>
+<option value="opera">opera</option>
+<option value="pagode">pagode</option>
+<option value="party">party</option>
+<option value="piano">piano</option>
+<option value="pop">pop</option>
+<option value="pop-film">pop-film</option>
+<option value="power-pop">power-pop</option>
+<option value="progressive-house">progressive-house</option>
+<option value="psych-rock">psych-rock</option>
+<option value="punk">punk</option>
+<option value="punk-rock">punk-rock</option>
+<option value="r-n-b">r-n-b</option>
+<option value="reggae">reggae</option>
+<option value="reggaeton">reggaeton</option>
+<option value="rock">rock</option>
+<option value="rock-n-roll">rock-n-roll</option>
+<option value="rockabilly">rockabilly</option>
+<option value="romance">romance</option>
+<option value="sad">sad</option>
+<option value="salsa">salsa</option>
+<option value="samba">samba</option>
+<option value="sertanejo">sertanejo</option>
+<option value="show-tunes">show-tunes</option>
+<option value="singer-songwriter">singer-songwriter</option>
+<option value="ska">ska</option>
+<option value="sleep">sleep</option>
+<option value="songwriter">songwriter</option>
+<option value="soul">soul</option>
+<option value="spanish">spanish</option>
+<option value="study">study</option>
+<option value="swedish">swedish</option>
+<option value="synth-pop">synth-pop</option>
+<option value="tango">tango</option>
+<option value="techno">techno</option>
+<option value="trance">trance</option>
+<option value="trip-hop">trip-hop</option>
+<option value="turkish">turkish</option>
+<option value="world-music">world-music</option></select>
+<script type="application/json" data-for="genre" data-nonempty="">{"plugins":["selectize-plugin-a11y"]}</script>
+</div>
+</div>
+<div class="form-group shiny-input-container">
+<label class="control-label" id="x_feature-label" for="x_feature">Choose x-axis feature:</label>
+<div>
+<select id="x_feature" class="shiny-input-select"><option value="popularity">Popularity</option>
+<option value="danceability" selected>Danceability</option>
+<option value="energy">Energy</option>
+<option value="valence">Valence / Positivity</option>
+<option value="tempo">Tempo</option>
+<option value="acousticness">Acousticness</option>
+<option value="instrumentalness">Instrumentalness</option>
+<option value="speechiness">Speechiness</option>
+<option value="liveness">Liveness</option>
+<option value="loudness">Loudness</option>
+<option value="duration_min">Duration in minutes</option></select>
+<script type="application/json" data-for="x_feature" data-nonempty="">{"plugins":["selectize-plugin-a11y"]}</script>
+</div>
+</div>
+<div class="form-group shiny-input-container">
+<label class="control-label" id="y_feature-label" for="y_feature">Choose y-axis feature:</label>
+<div>
+<select id="y_feature" class="shiny-input-select"><option value="popularity">Popularity</option>
+<option value="danceability">Danceability</option>
+<option value="energy" selected>Energy</option>
+<option value="valence">Valence / Positivity</option>
+<option value="tempo">Tempo</option>
+<option value="acousticness">Acousticness</option>
+<option value="instrumentalness">Instrumentalness</option>
+<option value="speechiness">Speechiness</option>
+<option value="liveness">Liveness</option>
+<option value="loudness">Loudness</option>
+<option value="duration_min">Duration in minutes</option></select>
+<script type="application/json" data-for="y_feature" data-nonempty="">{"plugins":["selectize-plugin-a11y"]}</script>
+</div>
+</div>
+<div class="form-group shiny-input-container">
+<label class="control-label" id="popularity_range-label" for="popularity_range">Choose popularity range:</label>
+<input class="js-range-slider" id="popularity_range" data-skin="shiny" data-type="double" data-min="0" data-max="100" data-from="0" data-to="100" data-step="1" data-grid="true" data-grid-num="10" data-grid-snap="false" data-prettify-separator="," data-prettify-enabled="true" data-keyboard="true" data-drag-interval="true" data-data-type="number"/>
+</div>
+</form>
+</div>
+<div class="col-sm-8" role="main">
+<div class="shiny-plot-output html-fill-item" id="spotify_plot" style="width:100%;height:400px;"></div>
+<br/>
+<h3>Top Songs in Selected Genre</h3>
+<div class="datatables html-widget html-widget-output shiny-report-size html-fill-item" id="top_songs" style="width:100%;height:auto;"></div>
+</div>
+</div>
+</div>
+<p>For this part, I had to check some suggestions from Claude to see how
+it works (cause I am new to this).</p>
+<pre class="r"><code>server &lt;- function(input, output, session) {
+  
+  # This reactive object filters the dataset based on the user&#39;s choices.
+  # Every time the user changes the genre or popularity range, this dataset updates.
+  
+  filtered_spotify &lt;- reactive({
+    spotify %&gt;%
+      filter(
+        track_genre == input$genre,
+        popularity &gt;= input$popularity_range[1],
+        popularity &lt;= input$popularity_range[2]
+      )
+  })
+  
+  # This code creates the scatterplot.
+  # The x-axis and y-axis change depending on what the user selects.
+  
+  output$spotify_plot &lt;- renderPlot({
+    ggplot(
+      filtered_spotify(),
+      aes(
+        x = .data[[input$x_feature]],
+        y = .data[[input$y_feature]],
+        color = popularity
+      )
+    ) +
+      geom_point(alpha = 0.6) +
+      labs(
+        title = paste(&quot;Spotify Tracks in the&quot;, input$genre, &quot;Genre&quot;),
+        x = names(feature_choices)[feature_choices == input$x_feature],
+        y = names(feature_choices)[feature_choices == input$y_feature],
+        color = &quot;Popularity&quot;
+      ) +
+      theme_minimal()
+  })
+  
+  # This code creates a table of the most popular songs in the selected genre.
+  # I show only the most useful columns so the table stays readable.
+  
+  output$top_songs &lt;- DT::renderDT({
+    filtered_spotify() %&gt;%
+      arrange(desc(popularity)) %&gt;%
+      select(
+        track_name,
+        artists,
+        album_name,
+        popularity,
+        danceability,
+        energy,
+        valence,
+        tempo
+      ) %&gt;%
+      head(10)
+  })
+}</code></pre>
+</div>
+<div id="run-the-app" class="section level3">
+<h3>Run the app</h3>
+<p>Let’s try to run it!</p>
+<pre class="r"><code>shinyApp(ui = fluidPage(
+  titlePanel(&quot;Interactive Spotify Track Explorer&quot;),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput(
+        inputId = &quot;genre&quot;,
+        label = &quot;Choose a genre:&quot;,
+        choices = sort(unique(spotify$track_genre)),
+        selected = sort(unique(spotify$track_genre))[1]
+      ),
+      
+      selectInput(
+        inputId = &quot;x_feature&quot;,
+        label = &quot;Choose x-axis feature:&quot;,
+        choices = feature_choices,
+        selected = &quot;danceability&quot;
+      ),
+      
+      selectInput(
+        inputId = &quot;y_feature&quot;,
+        label = &quot;Choose y-axis feature:&quot;,
+        choices = feature_choices,
+        selected = &quot;energy&quot;
+      ),
+      
+      sliderInput(
+        inputId = &quot;popularity_range&quot;,
+        label = &quot;Choose popularity range:&quot;,
+        min = 0,
+        max = 100,
+        value = c(0, 100)
+      )
+    ),
+    
+    mainPanel(
+      plotOutput(&quot;spotify_plot&quot;),
+      br(),
+      h3(&quot;Top Songs in Selected Genre&quot;),
+      DT::DTOutput(&quot;top_songs&quot;)
+    )
+  )
+), server = server)</code></pre>
+<div style="width: 100% ; height: 400px ; text-align: center; box-sizing: border-box; -moz-box-sizing: border-box; -webkit-box-sizing: border-box;" class="muted well">Shiny applications not supported in static R Markdown documents</div>
+</div>
+<div
+id="i-couldnt-really-figure-out-how-to-have-it-show-though.-as-it-is-right-now-this-app-only-works-dirctly-inside-the-rmd-file."
+class="section level3">
+<h3>I couldn’t really figure out how to have it show though. As it is
+right now, this app only works dirctly inside the rmd file.</h3>
+</div>
+<div id="overview" class="section level3">
+<h3>Overview</h3>
+<p>Ok this was very fun to do!</p>
+<p>This project helped me practice creating an interactive data product
+instead of only making a static graph. The app allows users to explore
+Spotify tracks by genre and compare different audio features. For
+example, users can compare danceability and energy, or look at whether
+more popular songs tend to have higher valence or tempo.</p>
+<p>One thing I learned is that a Shiny app needs both data analysis and
+design thinking. I had to decide which variables were useful, which
+controls would be easy for users to understand, and how much information
+to show at one time. I ended up keping the app simple by using a few
+dropdowns, one plot, and one table.</p>
+<p>I think as I learn more about this with more time, I would like to
+add more features such as comparing two genres, adding a search box for
+artists, or creating a recommendation tool based on the user’s preferred
+audio features.</p>
+</div>
+</div>
 
 
 
