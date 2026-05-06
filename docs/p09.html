@@ -11,9 +11,9 @@
 
 
 
-<title>Portfolio 9</title>
+<title>Portfolio 9: Simplified Exploring of Eye-Tracking Data From a Visual Search Task</title>
 
-<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.31/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
@@ -290,18 +290,547 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Portfolio 9</h1>
+<h1 class="title toc-ignore">Portfolio 9: Simplified Exploring of
+Eye-Tracking Data From a Visual Search Task</h1>
 
 </div>
 
 
 <blockquote>
-<p>The projects should be numbered consecutively (i.e., in the order in
-which you began them), and should include for each project a description
-of the goal, the product (computer program, hand graph, computer graph,
-etc.), the data, and some interpretation. Reports must be reproducible
-and of high quality in terms of writing, grammar, presentation, etc.</p>
+<p>Goal: For this piece, as I was preparing for my first year project, I
+wanted to practice some explortory analysis on the data I have collected
+for my study. However, the original script we worked with is very long
+and includes many custom functions, exclusions, and publication-style
+summaries. My goal here is more modest: use the fixation report to do
+some exploratory analysis. As I am preparing for my poster, I wanted to
+use this piece mainly about learning the data, documenting my cleaning
+decisions, and creating simpler visualizations.</p>
 </blockquote>
+<div id="background" class="section level3">
+<h3>Background</h3>
+<p>In our study, in a visual search task, participants look for a target
+item among other items. Sometimes, a visually salient distractor can
+capture attention even when it is not relevant to the task. In this
+dataset, the distractor was a color singleton. One of the critical
+manipulation is that one color appears more often than the others,
+creating high-frequency and low-frequency conditions. A major question
+in the broader research project was whether participants learn to avoid
+this distractor over time.</p>
+<p>Because eye-tracking data are recorded at the fixation level, the
+dataset is more complex than a typical trial-level behavioral dataset. A
+single trial can have multiple rows because each fixation is recorded
+separately. This creates an important data science challenge: some
+variables describe the whole trial, while others describe individual
+fixations.</p>
+<p>In our dataset, each row appears to represent one fixation within one
+trial. This means that a single trial can appear multiple times if the
+participant made multiple fixations during that trial.</p>
+<p>The dataset includes behavioral variables, such as response time and
+accuracy, as well as eye-tracking variables, such as fixation position
+and fixation duration.</p>
+<p>Important variables:</p>
+<ul>
+<li><code>subjnum</code>: participant ID</li>
+<li><code>block</code>, <code>trial</code>: task structure</li>
+<li><code>ACC</code>: whether the response was correct</li>
+<li><code>RT</code>: manual response time</li>
+<li><code>singPres</code>: whether the singleton was present
+(<code>P</code>) or absent (<code>A</code>)</li>
+<li><code>singProb</code>: singleton condition (<code>high</code>,
+<code>low</code>, or absent)</li>
+<li><code>targLoc</code>, <code>singLoc</code>: target and singleton
+locations</li>
+<li><code>CURRENT_FIX_X</code>, <code>CURRENT_FIX_Y</code>: fixation
+coordinates</li>
+<li><code>CURRENT_FIX_DURATION</code>: how long the fixation lasted</li>
+</ul>
+<p>Because response time and accuracy repeat across fixations, I
+summarize them using one row per trial. For fixation measures, I use the
+fixation-level rows.</p>
+</div>
+<div id="load-packages" class="section level2">
+<h2>Load Packages</h2>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.2.0     ✔ readr     2.2.0
+## ✔ forcats   1.0.1     ✔ stringr   1.6.0
+## ✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+## ✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+## ✔ purrr     1.2.1     
+## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>library(janitor)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;janitor&#39;
+## 
+## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     chisq.test, fisher.test</code></pre>
+<pre class="r"><code>library(scales)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;scales&#39;
+## 
+## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     discard
+## 
+## The following object is masked from &#39;package:readr&#39;:
+## 
+##     col_factor</code></pre>
+</div>
+<div id="read-the-data" class="section level2">
+<h2>Read the Data</h2>
+<pre class="r"><code>fix_raw &lt;- read_tsv(&quot;data/fix_report.txt&quot;, na = c(&quot;.&quot;, &quot;NA&quot;), show_col_types = FALSE) %&gt;%
+  
+# Remove the prefix t_ from the beginning of column names.
+  clean_names() %&gt;%
+  rename_with(~ str_remove(.x, &quot;^t_&quot;))
+
+glimpse(fix_raw)</code></pre>
+<pre><code>## Rows: 65,876
+## Columns: 29
+## $ subjnum                 &lt;dbl&gt; 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3…
+## $ block                   &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
+## $ trial                   &lt;dbl&gt; 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5…
+## $ acc                     &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
+## $ rt                      &lt;dbl&gt; 1521, 1521, 1521, 1521, 1521, 997, 997, 997, 9…
+## $ sing_pres               &lt;chr&gt; &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;…
+## $ targ_loc                &lt;dbl&gt; 3, 3, 3, 3, 3, 7, 7, 7, 7, 8, 8, 8, 8, 1, 1, 1…
+## $ sing_loc                &lt;dbl&gt; 7, 7, 7, 7, 7, 8, 8, 8, 8, 4, 4, 4, 4, 4, 4, 4…
+## $ previous_sac_start_time &lt;dbl&gt; NA, 23, 273, 525, 783, NA, 158, 224, 392, NA, …
+## $ current_fix_x           &lt;dbl&gt; 953.8, 947.9, 1056.3, 1403.0, 1375.1, 971.0, 7…
+## $ current_fix_y           &lt;dbl&gt; 460.9, 487.8, 76.8, 441.9, 484.6, 485.4, 394.9…
+## $ current_fix_index       &lt;dbl&gt; 1, 2, 3, 4, 5, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3…
+## $ current_fix_duration    &lt;dbl&gt; 23, 232, 128, 198, 722, 158, 26, 126, 554, 274…
+## $ current_fix_end         &lt;dbl&gt; 21, 271, 523, 781, 1519, 156, 222, 390, 962, 2…
+## $ previous_sac_end_time   &lt;dbl&gt; NA, 39, 395, 583, 797, NA, 196, 264, 408, NA, …
+## $ targ_shape              &lt;chr&gt; &quot;circle&quot;, &quot;circle&quot;, &quot;circle&quot;, &quot;circle&quot;, &quot;circl…
+## $ targ_id                 &lt;chr&gt; &quot;H&quot;, &quot;H&quot;, &quot;H&quot;, &quot;H&quot;, &quot;H&quot;, &quot;V&quot;, &quot;V&quot;, &quot;V&quot;, &quot;V&quot;, &quot;…
+## $ sing_col                &lt;chr&gt; &quot;green&quot;, &quot;green&quot;, &quot;green&quot;, &quot;green&quot;, &quot;green&quot;, &quot;…
+## $ resp                    &lt;chr&gt; &quot;H&quot;, &quot;H&quot;, &quot;H&quot;, &quot;H&quot;, &quot;H&quot;, &quot;V&quot;, &quot;V&quot;, &quot;V&quot;, &quot;V&quot;, &quot;…
+## $ age                     &lt;dbl&gt; 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18…
+## $ exp_vers                &lt;dbl&gt; 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3…
+## $ gender                  &lt;chr&gt; &quot;F&quot;, &quot;F&quot;, &quot;F&quot;, &quot;F&quot;, &quot;F&quot;, &quot;F&quot;, &quot;F&quot;, &quot;F&quot;, &quot;F&quot;, &quot;…
+## $ hand                    &lt;chr&gt; &quot;L&quot;, &quot;L&quot;, &quot;L&quot;, &quot;L&quot;, &quot;L&quot;, &quot;L&quot;, &quot;L&quot;, &quot;L&quot;, &quot;L&quot;, &quot;…
+## $ recording_session_label &lt;chr&gt; &quot;SS_3&quot;, &quot;SS_3&quot;, &quot;SS_3&quot;, &quot;SS_3&quot;, &quot;SS_3&quot;, &quot;SS_3&quot;…
+## $ condition               &lt;chr&gt; &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;A&quot;, &quot;…
+## $ phase                   &lt;chr&gt; &quot;practice&quot;, &quot;practice&quot;, &quot;practice&quot;, &quot;practice&quot;…
+## $ sing_prob               &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
+## $ previous_fix_end        &lt;dbl&gt; NA, 21, 271, 523, 781, NA, 156, 222, 390, NA, …
+## $ current_fix_start       &lt;dbl&gt; 0, 41, 397, 585, 799, 0, 198, 266, 410, 0, 318…</code></pre>
+</div>
+<div id="basic-structure-of-the-dataset" class="section level2">
+<h2>Basic Structure of the Dataset</h2>
+<pre class="r"><code>fix_raw %&gt;%
+  summarise(
+    rows_fixations = n(),
+    participants = n_distinct(subjnum),
+    trials = n_distinct(paste(subjnum, trial)),
+    blocks = n_distinct(block)
+  )</code></pre>
+<pre><code>## # A tibble: 1 × 4
+##   rows_fixations participants trials blocks
+##            &lt;int&gt;        &lt;int&gt;  &lt;int&gt;  &lt;int&gt;
+## 1          65876           32  15196     15</code></pre>
+<p>The number of rows is larger than the number of trials because each
+trial can include multiple fixations. This is why I separate trial-level
+summaries from fixation-level summaries.</p>
+</div>
+<div id="clean-and-simplify-the-data" class="section level2">
+<h2>Clean and Simplify the Data</h2>
+<p>Our original analysis used several cleaning rules, including response
+time cutoffs, saccadic reaction time cutoffs, and accuracy filtering.
+For this piece, since I am using this to learn and practice, I used a
+simplified version of those rules for this exploratory analysis.</p>
+<div id="clean-data" class="section level3">
+<h3>Clean Data</h3>
+<pre class="r"><code>fix_clean &lt;- fix_raw %&gt;%
+  mutate(
+    subjnum = as.numeric(subjnum),
+    block = as.numeric(block),
+    trial = as.numeric(trial),
+    acc = as.numeric(acc),
+    rt = as.numeric(rt),
+    srt = as.numeric(previous_sac_start_time),
+    dwell = as.numeric(current_fix_duration),
+    targ_loc = as.numeric(targ_loc),
+    sing_loc = as.numeric(sing_loc),
+    sing_prob = case_when(
+      sing_pres == &quot;A&quot; ~ &quot;Absent&quot;,
+      sing_prob == &quot;high&quot; ~ &quot;High&quot;,
+      sing_prob == &quot;low&quot; ~ &quot;Low&quot;,
+      TRUE ~ as.character(sing_prob)
+    ),
+    sing_loc = if_else(sing_pres == &quot;A&quot;, 0, sing_loc),
+    keep_rt = rt &gt; 200 &amp; rt &lt;= 2500,
+    keep_srt = srt &gt; 50 &amp; srt &lt; 1000
+  ) %&gt;%
+  filter(phase == &quot;experiment&quot;)</code></pre>
+<p>First, I converted important columns into numeric variables,
+including participant number, block, trial, accuracy, response time,
+saccadic reaction time, fixation duration, target location, and
+singleton location. This was necessary because some columns were read in
+as text even though they represent numbers.</p>
+<p>I also created clearer condition labels for <code>sing_prob</code>.
+In the original dataset, singleton-absent trials were marked using
+<code>sing_pres == "A"</code>, while present trials could be labeled as
+high- or low-frequency singleton conditions. I recoded these into three
+easier-to-read categories: <code>Absent</code>, <code>High</code>, and
+<code>Low</code>.</p>
+<p>Next, I set the singleton location to 0 for absent trials. This is
+because when the singleton is absent, its location is not meaningful.
+Setting it to 0 helps prevent absent trials from being treated as if a
+singleton appeared somewhere on the display.</p>
+<p>Finally, I created two filtering variables: <code>keep_rt</code> and
+<code>keep_srt</code>. These mark whether each trial had a response time
+between 200 and 2500 ms and a saccadic reaction time between 50 and 1000
+ms. These cutoffs are a simplified version of the original research
+analysis. I also filtered the dataset to include only experimental
+trials, removing practice trials.</p>
+</div>
+<div id="create-trial-level-data" class="section level3">
+<h3>Create Trial-Level Data</h3>
+<p>Our raw/clean eye-tracking data is fixation-level, meaning one trial
+can appear multiple times because there can be several fixations in the
+same trial. But response time and accuracy belong to the whole trial,
+not to each fixation.</p>
+<p>So before summarizing RT and accuracy, we need one row per trial.</p>
+<pre class="r"><code>trial_data &lt;- fix_clean %&gt;%
+  distinct(subjnum, trial, .keep_all = TRUE) %&gt;%
+  filter(
+    keep_rt,
+    !is.na(acc),
+    !is.na(rt),
+    !is.na(sing_prob)
+  )
+
+trial_data %&gt;%
+  summarise(
+    trials_after_cleaning = n(),
+    participants = n_distinct(subjnum),
+    mean_rt = mean(rt, na.rm = TRUE),
+    mean_accuracy = mean(acc, na.rm = TRUE)
+  )</code></pre>
+<pre><code>## # A tibble: 1 × 4
+##   trials_after_cleaning participants mean_rt mean_accuracy
+##                   &lt;int&gt;        &lt;int&gt;   &lt;dbl&gt;         &lt;dbl&gt;
+## 1                 14216           32   1068.         0.943</code></pre>
+</div>
+<div id="accuracy-by-singleton-condition" class="section level3">
+<h3>Accuracy by Singleton Condition</h3>
+<p>Accuracy is a trial-level outcome. That means each trial has one
+accuracy value: correct or incorrect. So, I summarized accuracy by
+singleton condition to see whether performance differed depending on the
+type of singleton trial.</p>
+<p>Because accuracy is coded at the trial level, I used the trial-level
+dataset rather than the fixation-level dataset. This avoids counting
+trials with more fixations multiple times.</p>
+<pre class="r"><code>accuracy_summary &lt;- trial_data %&gt;%
+  group_by(sing_prob) %&gt;%
+  summarise(
+    mean_accuracy = mean(acc, na.rm = TRUE),
+    n_trials = n(),
+    .groups = &quot;drop&quot;
+  )
+
+accuracy_summary</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   sing_prob mean_accuracy n_trials
+##   &lt;chr&gt;             &lt;dbl&gt;    &lt;int&gt;
+## 1 Absent            0.952     7131
+## 2 High              0.936     5319
+## 3 Low               0.930     1766</code></pre>
+<p>Accuracy was high across all three singleton conditions. Participants
+were most accurate on singleton-absent trials, with an average accuracy
+of about 95.2% (makes sense since there is nothing distracting).
+Accuracy was slightly lower for high-frequency singleton trials, about
+93.6%, and low-frequency singleton trials, about 93.0%.</p>
+<p>This suggests that participants performed well overall, but they were
+a little less accurate when a singleton distractor was present. The
+difference is not huge, but it is consistent with the idea that
+distractors can make the visual search task somewhat harder.</p>
+<p>One thing to note here, is that the number of trials differed by
+condition, with more absent trials than singleton-present trials.
+Because of this, I am interpreting these values descriptively rather
+than as a formal statistical test.</p>
+</div>
+<div id="accuracy-condition" class="section level3">
+<h3>Accuracy Condition</h3>
+<pre class="r"><code>ggplot(accuracy_summary, aes(x = sing_prob, y = mean_accuracy, fill = sing_prob)) +
+  geom_col(width = 0.7, color = &quot;white&quot;) +
+  scale_y_continuous(labels = percent_format(accuracy = 1), limits = c(0, 1)) +
+  scale_fill_manual(values = c(&quot;Absent&quot; = &quot;#8ECAE6&quot;, &quot;High&quot; = &quot;#219EBC&quot;, &quot;Low&quot; = &quot;#FFB703&quot;)) +
+  labs(
+    title = &quot;Accuracy by Singleton Condition&quot;,
+    x = &quot;Singleton condition&quot;,
+    y = &quot;Mean accuracy&quot;,
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;),
+    legend.position = &quot;none&quot;,
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p09_files/figure-html/accuracy-plot-1.png" alt="" width="672" /></p>
+<p>Here, we are accuracy as a basic check of performance. If accuracy is
+very low in one condition, response time patterns could be harder to
+interpret.</p>
+</div>
+</div>
+<div id="response-time-by-singleton-condition" class="section level2">
+<h2>Response Time by Singleton Condition</h2>
+<p>For response time, I only used correct trials because incorrect
+trials may reflect different decision processes.</p>
+<pre class="r"><code>rt_summary &lt;- trial_data %&gt;%
+  filter(acc == 1) %&gt;%
+  group_by(sing_prob) %&gt;%
+  summarise(
+    mean_rt = mean(rt, na.rm = TRUE),
+    median_rt = median(rt, na.rm = TRUE),
+    n_trials = n(),
+    .groups = &quot;drop&quot;
+  )
+
+rt_summary</code></pre>
+<pre><code>## # A tibble: 3 × 4
+##   sing_prob mean_rt median_rt n_trials
+##   &lt;chr&gt;       &lt;dbl&gt;     &lt;dbl&gt;    &lt;int&gt;
+## 1 Absent       995.       912     6792
+## 2 High        1120.      1039     4976
+## 3 Low         1147.      1075     1643</code></pre>
+<p>Mean response time differed by singleton condition. Participants were
+fastest on singleton-absent trials, with an average RT of about 995 ms.
+They were slower when a singleton distractor was present. Mean RT was
+about 1120 ms for high-frequency singleton trials and about 1147 ms for
+low-frequency singleton trials.</p>
+<p>This pattern suggests a singleton presence cost: participants
+responded more slowly when a distracting singleton was present compared
+with when it was absent. The low-frequency singleton condition had the
+slowest average response time, which may suggests that lower-frequency
+distractors were harder to ignore or less expected.</p>
+<p>The median response times show the same general pattern: absent
+trials had the fastest median RT, followed by high-frequency trials,
+then low-frequency trials. This makes the pattern more convincing
+because it is not only driven by extreme response times.</p>
+<div id="rt-plot" class="section level3">
+<h3>RT Plot</h3>
+<pre class="r"><code>ggplot(rt_summary, aes(x = sing_prob, y = mean_rt, fill = sing_prob)) +
+  geom_col(width = 0.7, color = &quot;white&quot;) +
+  scale_fill_manual(values = c(&quot;Absent&quot; = &quot;#8ECAE6&quot;, &quot;High&quot; = &quot;#219EBC&quot;, &quot;Low&quot; = &quot;#FFB703&quot;)) +
+  labs(
+    title = &quot;Mean Response Time by Singleton Condition&quot;,
+    subtitle = &quot;Correct trials only&quot;,
+    x = &quot;Singleton condition&quot;,
+    y = &quot;Mean RT (ms)&quot;,
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;),
+    legend.position = &quot;none&quot;,
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p09_files/figure-html/rt-plot-1.png" alt="" width="672" /></p>
+</div>
+</div>
+<div id="approximate-item-fixated" class="section level2">
+<h2>Approximate Item Fixated</h2>
+<p>Now, we want to see, for each fixation, what item was the participant
+probably looking at?</p>
+<p>The dataset includes fixation coordinates, but it does not directly
+label each fixation as being on the target, singleton, or another item.
+To simplify the analysis, I used the known display locations to classify
+each fixation by the nearest item location.</p>
+<pre class="r"><code>screen_width &lt;- 1920
+screen_height &lt;- 1080
+center_x &lt;- screen_width / 2
+center_y &lt;- screen_height / 2
+eccentricity &lt;- 400
+fix_zone &lt;- 90
+set_size &lt;- 8
+
+item_locations &lt;- tibble(
+  item_loc = 1:set_size,
+  angle = (item_loc - 1) * 2 * pi / set_size,
+  item_x = center_x + eccentricity * sin(angle),
+  item_y = center_y - eccentricity * cos(angle)
+)
+
+fix_items &lt;- fix_clean %&gt;%
+  filter(keep_rt, keep_srt, acc == 1) %&gt;%
+  mutate(row_id = row_number()) %&gt;%
+  crossing(item_locations) %&gt;%
+  mutate(distance = sqrt((current_fix_x - item_x)^2 + (current_fix_y - item_y)^2)) %&gt;%
+  group_by(row_id) %&gt;%
+  slice_min(distance, n = 1, with_ties = FALSE) %&gt;%
+  ungroup() %&gt;%
+  mutate(
+    curr_loc = if_else(distance &lt;= fix_zone, item_loc, NA_integer_),
+    curr_item = case_when(
+      is.na(curr_loc) ~ NA_character_,
+      curr_loc == targ_loc ~ &quot;Target&quot;,
+      curr_loc == sing_loc ~ &quot;Singleton&quot;,
+      TRUE ~ &quot;Nonsingleton&quot;
+    )
+  )</code></pre>
+<p>The display was 1920 by 1080 pixels. The center of the screen was
+used as the starting point. The task had 8 possible item locations
+(these are either circles or diamonds) arranged in a circle, about 400
+pixels from the center. We used a 90-pixel radius as the fixation zone
+around each item.</p>
+<p>For each fixation, we calculate the distance between the fixation
+coordinates and each of the 8 possible item locations. Then we kept the
+item location with the smallest distance. This gives us the closest
+display item for each fixation.</p>
+<p>If the fixation was within 90 pixels of the nearest item, we counted
+it as landing on that item. If it was farther than 90 pixels, we treated
+it as not landing on any item. Then we labeled the item as the target,
+the singleton distractor, or a nonsingleton item.</p>
+<p>This is a simplified version of the original research analysis. It is
+useful for exploratory analysis, but it is still an approximation
+because eye-tracking data can be noisy and fixations do not always land
+perfectly on an item.</p>
+</div>
+<div id="first-fixation-by-item-type" class="section level2">
+<h2>First Fixation by Item Type</h2>
+<p>After looking at response time and accuracy, we will nowexplore where
+participants looked first. In this task, a first fixation could land on
+the target, the singleton distractor, or a nonsingleton item. This
+analysis helps connect the behavioral results to eye movements (which is
+the main reason for the study).</p>
+<p>For each trial, we identified the first fixation that landed on one
+of the display items. Then we summarized whether the first fixation
+landed on the target, singleton, or a nonsingleton.</p>
+<pre class="r"><code>first_fixation &lt;- fix_items %&gt;%
+  filter(!is.na(curr_item)) %&gt;%
+  group_by(subjnum, trial) %&gt;%
+  arrange(current_fix_start, .by_group = TRUE) %&gt;%
+  slice(1) %&gt;%
+  ungroup()
+
+first_fix_summary &lt;- first_fixation %&gt;%
+  count(sing_prob, curr_item) %&gt;%
+  group_by(sing_prob) %&gt;%
+  mutate(percent = n / sum(n)) %&gt;%
+  ungroup()
+
+first_fix_summary</code></pre>
+<pre><code>## # A tibble: 8 × 4
+##   sing_prob curr_item        n percent
+##   &lt;chr&gt;     &lt;chr&gt;        &lt;int&gt;   &lt;dbl&gt;
+## 1 Absent    Nonsingleton  1789   0.285
+## 2 Absent    Target        4488   0.715
+## 3 High      Nonsingleton   836   0.180
+## 4 High      Singleton     1558   0.335
+## 5 High      Target        2260   0.486
+## 6 Low       Nonsingleton   271   0.176
+## 7 Low       Singleton      643   0.417
+## 8 Low       Target         628   0.407</code></pre>
+<pre class="r"><code>ggplot(first_fix_summary, aes(x = curr_item, y = percent, fill = sing_prob)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.7, color = &quot;white&quot;) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_fill_manual(values = c(&quot;Absent&quot; = &quot;#8ECAE6&quot;, &quot;High&quot; = &quot;#219EBC&quot;, &quot;Low&quot; = &quot;#FFB703&quot;)) +
+  labs(
+    title = &quot;First Fixation by Item Type&quot;,
+    subtitle = &quot;First fixation landing on a display item&quot;,
+    x = &quot;Item fixated first&quot;,
+    y = &quot;Percent of first fixations&quot;,
+    fill = &quot;Condition&quot;
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;),
+    legend.position = &quot;top&quot;,
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p09_files/figure-html/first-fixation-plot-1.png" alt="" width="768" /></p>
+<p>The first-fixation plot shows that participants were most likely to
+look first at the target. This makes sense because the goal of the task
+was to find the target. In singleton-absent trials, about 69% of first
+fixations landed on the target and about 29% landed on nonsingleton
+items.</p>
+<p>When the singleton was present, first fixations were more spread out.
+In the high-frequency condition, about 48% of first fixations landed on
+the target, about 34% landed on nonsingleton items, and about 18% landed
+on the singleton. In the low-frequency condition, about 40% landed on
+the target, about 42% landed on nonsingleton items, and about 17% landed
+on the singleton.</p>
+<p>Overall, this suggests that participants often looked at the target
+first, but singleton-present trials created more competition between
+display items. The singleton itself captured some first fixations, but
+many first fixations also went to nonsingleton items.</p>
+</div>
+<div id="dwell-tiime-by-item-type" class="section level2">
+<h2>Dwell Tiime by Item Type</h2>
+<p>Next, I looked at fixation duration. This tells us how long
+participants stayed on different kinds of items after looking at
+them.</p>
+<pre class="r"><code>dwell_summary &lt;- fix_items %&gt;%
+  filter(!is.na(curr_item), !is.na(dwell), dwell &gt; 0) %&gt;%
+  group_by(sing_prob, curr_item) %&gt;%
+  summarise(
+    mean_dwell = mean(dwell, na.rm = TRUE),
+    median_dwell = median(dwell, na.rm = TRUE),
+    n_fixations = n(),
+    .groups = &quot;drop&quot;
+  )
+
+dwell_summary</code></pre>
+<pre><code>## # A tibble: 8 × 5
+##   sing_prob curr_item    mean_dwell median_dwell n_fixations
+##   &lt;chr&gt;     &lt;chr&gt;             &lt;dbl&gt;        &lt;dbl&gt;       &lt;int&gt;
+## 1 Absent    Nonsingleton       153.          140        3134
+## 2 Absent    Target             279.          236        9021
+## 3 High      Nonsingleton       158.          146        2020
+## 4 High      Singleton          157.          144        1936
+## 5 High      Target             287.          240        6240
+## 6 Low       Nonsingleton       158.          146         701
+## 7 Low       Singleton          158.          148         790
+## 8 Low       Target             296.          254        2040</code></pre>
+<pre class="r"><code>ggplot(dwell_summary, aes(x = curr_item, y = mean_dwell, fill = sing_prob)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.7, color = &quot;white&quot;) +
+  scale_fill_manual(values = c(&quot;Absent&quot; = &quot;#8ECAE6&quot;, &quot;High&quot; = &quot;#219EBC&quot;, &quot;Low&quot; = &quot;#FFB703&quot;)) +
+  labs(
+    title = &quot;Mean Fixation Duration by Item Type&quot;,
+    x = &quot;Item fixated&quot;,
+    y = &quot;Mean Dwell Time (ms)&quot;,
+    fill = &quot;Condition&quot;
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;),
+    legend.position = &quot;top&quot;,
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p09_files/figure-html/dwell-plot-1.png" alt="" width="768" /></p>
+<p>The dwell time results show a clear difference between target
+fixations and distractor fixations. Target fixations were longer than
+nonsingleton and singleton fixations across conditions. For example,
+mean target fixation duration was about 279 ms in absent trials, 287 ms
+in high-frequency singleton trials, and 296 ms in low-frequency
+singleton trials.</p>
+<p>In contrast, nonsingleton and singleton fixations were much shorter,
+usually around 150–160 ms on average. Singleton fixations were very
+similar to nonsingleton fixations in both the high- and low-frequency
+conditions. This suggests that when participants looked at distractor
+items, they tended to move away relatively quickly, while target
+fixations lasted longer. This aligns with one of our hypotheses of the
+study.</p>
+<p>This pattern makes sense because the target was task-relevant.
+Participants likely needed more time on the target to identify it and
+make a response, while singleton and nonsingleton distractors could be
+rejected more quickly.</p>
+<p>This exploratory analysis helped me practice the analysis process for
+my project by simplifying the complex eye-tracking dataset into a more
+manageable form.</p>
+<p>This analysis is intentionally simplified. In our research analysis,
+we will be using the complete preprocessing pipeline, including more
+careful and in-depth fixation classification, subject exclusion rules,
+and within-subject error bars.</p>
+</div>
 
 
 

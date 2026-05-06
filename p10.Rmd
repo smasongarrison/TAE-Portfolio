@@ -1,5 +1,5 @@
 ---
-title: "Portfolio 10"
+title: "Portfolio 10: Creating Figures From Eye-Tracking Data for Poster Presentation"
 ---
 
 > The projects should be numbered consecutively (i.e., in the order in which you began them), and should include for each project a description of the goal, the product (computer program, hand graph, computer graph, etc.), the data, and some interpretation. Reports must be reproducible and of high quality in terms of writing, grammar, presentation, etc.
