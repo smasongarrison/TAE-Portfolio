@@ -150,7 +150,7 @@ Accuracy was high across all three singleton conditions. Participants were most 
 
 This suggests that participants performed well overall, but they were a little less accurate when a singleton distractor was present. The difference is not huge, but it is consistent with the idea that distractors can make the visual search task somewhat harder.
 
-One thing to note here, is that the number of trials differed by condition, with more absent trials than singleton-present trials. Because of this, I am interpreting these values descriptively rather than as a formal statistical test.
+One thing to note here, is that the number of trials differed by condition, with more absent trials than singleton-present trials. 
 
 ### Accuracy Condition
 
@@ -173,7 +173,7 @@ ggplot(accuracy_summary, aes(x = sing_prob, y = mean_accuracy, fill = sing_prob)
   )
 ```
 
-Here, we are accuracy as a basic check of performance. If accuracy is very low in one condition, response time patterns could be harder to interpret.
+Here, we are using accuracy as a basic check of performance. If accuracy is very low in one condition, response time patterns could be harder to interpret.
 
 ## Response Time by Singleton Condition
 
