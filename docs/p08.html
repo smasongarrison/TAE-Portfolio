@@ -11,9 +11,9 @@
 
 
 
-<title>Portfolio 8</title>
+<title>Portfolio 8: Mental Health Workforce Access Across U.S. States</title>
 
-<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.31/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
@@ -290,18 +290,377 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Portfolio 8</h1>
+<h1 class="title toc-ignore">Portfolio 8: Mental Health Workforce Access
+Across U.S. States</h1>
 
 </div>
 
 
 <blockquote>
-<p>The projects should be numbered consecutively (i.e., in the order in
-which you began them), and should include for each project a description
-of the goal, the product (computer program, hand graph, computer graph,
-etc.), the data, and some interpretation. Reports must be reproducible
-and of high quality in terms of writing, grammar, presentation, etc.</p>
+<p>Goal: The aim of this portfolio piece is to explore whether mental
+health providers are evenly distributed across U.S. states. For this
+project, I will work with a state-level dataset from the Area Health
+Resources Files and focus on psychologist availability by state. This is
+a comprehensive dataset maintained by the Health Resources and Services
+Administration (HRSA).</p>
 </blockquote>
+<p>Data source link: <a
+href="https://data.hrsa.gov/data/download?hmpgtitle=hmpg-hrsa-data"
+class="uri">https://data.hrsa.gov/data/download?hmpgtitle=hmpg-hrsa-data</a></p>
+<div id="load-packages" class="section level3">
+<h3>Load Packages</h3>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.2.0     ✔ readr     2.2.0
+## ✔ forcats   1.0.1     ✔ stringr   1.6.0
+## ✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+## ✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+## ✔ purrr     1.2.1     
+## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>library(janitor)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;janitor&#39;
+## 
+## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     chisq.test, fisher.test</code></pre>
+<pre class="r"><code>library(maps)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;maps&#39;
+## 
+## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     map</code></pre>
+</div>
+<div id="read-the-data" class="section level3">
+<h3>Read the Data</h3>
+<pre class="r"><code>state_data &lt;- read_csv(&quot;data/ahrfsn2025.csv&quot;) %&gt;%
+  clean_names()</code></pre>
+<pre><code>## Rows: 52 Columns: 1448
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr    (2): fips_st, st_abbrev
+## dbl (1412): phys_wkforc_23, phys_mal_23, phys_fem_23, phys_lt30_23, phys_30_...
+## lgl   (34): phys_emplymt_24, pa_nhpi_23, aprn_nhpi_23, dent_nhpi_23, dent_ai...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+</div>
+<div id="select-variables" class="section level3">
+<h3>Select Variables</h3>
+<p>The original dataset has 1448 variables, and 52 observations. I
+created a smaller dataset with only the columns needed for this
+portfolio piece. I focused on psychologists because this is a clear
+mental health workforce measure, and I used population to calculate a
+rate per 100,000 people.</p>
+<pre class="r"><code>mental_health_raw &lt;- state_data %&gt;%
+  select(
+    state = st_abbrev,
+    psychologists = psychol_23,
+    population = popn_24
+  )
+
+glimpse(mental_health_raw)</code></pre>
+<pre><code>## Rows: 52
+## Columns: 3
+## $ state         &lt;chr&gt; &quot;AL&quot;, &quot;AK&quot;, &quot;AZ&quot;, &quot;AR&quot;, &quot;CA&quot;, &quot;CO&quot;, &quot;CT&quot;, &quot;DE&quot;, &quot;DC&quot;, &quot;F…
+## $ psychologists &lt;dbl&gt; 982, 588, 5125, 877, 43112, 6855, 5317, 1160, 1648, 1183…
+## $ population    &lt;dbl&gt; 5157699, 740133, 7582384, 3088354, 39431263, 5957493, 36…</code></pre>
+</div>
+<div id="check-missing-values-before-cleaning" class="section level3">
+<h3>Check Missing Values Before Cleaning</h3>
+<p>The file also has 52 rows because it includes the 50 states, DC, and
+one row for the whole U.S. I am going to remove the US row before making
+state graphs. I am also removing missing values if there are any.</p>
+<pre class="r"><code>missing_state_check &lt;- mental_health_raw %&gt;%
+  filter(state != &quot;US&quot;) %&gt;%
+  mutate(
+    missing_reason = case_when(
+      is.na(psychologists) &amp; is.na(population) ~ &quot;Missing psychologists and population&quot;,
+      is.na(psychologists) ~ &quot;Missing psychologists&quot;,
+      is.na(population) ~ &quot;Missing population&quot;,
+      population &lt;= 0 ~ &quot;Population is zero or negative&quot;,
+      TRUE ~ &quot;Complete&quot;
+    )
+  )
+
+missing_state_check %&gt;%
+  filter(missing_reason != &quot;Complete&quot;)</code></pre>
+<pre><code>## # A tibble: 1 × 4
+##   state psychologists population missing_reason       
+##   &lt;chr&gt;         &lt;dbl&gt;      &lt;dbl&gt; &lt;chr&gt;                
+## 1 ND               NA     796568 Missing psychologists</code></pre>
+<p>North Dakota has been excluded from the list, since there is no
+information for psychologists.</p>
+</div>
+<div id="create-cleaned-state-dataset" class="section level3">
+<h3>Create Cleaned State Dataset</h3>
+<pre class="r"><code>mental_health_state &lt;- mental_health_raw %&gt;%
+  filter(
+    state != &quot;US&quot;,
+    !is.na(state),
+    !is.na(psychologists),
+    !is.na(population),
+    population &gt; 0
+  ) %&gt;%
+  mutate(
+    psychologists_per_100k = psychologists / population * 100000
+  ) %&gt;%
+  filter(is.finite(psychologists_per_100k))
+
+glimpse(mental_health_state)</code></pre>
+<pre><code>## Rows: 50
+## Columns: 4
+## $ state                  &lt;chr&gt; &quot;AL&quot;, &quot;AK&quot;, &quot;AZ&quot;, &quot;AR&quot;, &quot;CA&quot;, &quot;CO&quot;, &quot;CT&quot;, &quot;DE&quot;,…
+## $ psychologists          &lt;dbl&gt; 982, 588, 5125, 877, 43112, 6855, 5317, 1160, 1…
+## $ population             &lt;dbl&gt; 5157699, 740133, 7582384, 3088354, 39431263, 59…
+## $ psychologists_per_100k &lt;dbl&gt; 19.03950, 79.44518, 67.59088, 28.39700, 109.334…</code></pre>
+</div>
+<div id="check-cleaned-data" class="section level3">
+<h3>Check Cleaned Data</h3>
+<pre class="r"><code>mental_health_state %&gt;%
+  arrange(desc(psychologists_per_100k)) %&gt;%
+  print(n = 10)</code></pre>
+<pre><code>## # A tibble: 50 × 4
+##    state psychologists population psychologists_per_100k
+##    &lt;chr&gt;         &lt;dbl&gt;      &lt;dbl&gt;                  &lt;dbl&gt;
+##  1 DC             1648     702250                   235.
+##  2 CT             5317    3675069                   145.
+##  3 MA            10273    7136171                   144.
+##  4 NY            27701   19867248                   139.
+##  5 RI             1385    1112308                   125.
+##  6 VT              772     648493                   119.
+##  7 CO             6855    5957493                   115.
+##  8 DE             1160    1051917                   110.
+##  9 CA            43112   39431263                   109.
+## 10 MD             6505    6263220                   104.
+## # ℹ 40 more rows</code></pre>
+<pre class="r"><code>mental_health_state %&gt;%
+  arrange(psychologists_per_100k) %&gt;%
+  print(n = 10)</code></pre>
+<pre><code>## # A tibble: 50 × 4
+##    state psychologists population psychologists_per_100k
+##    &lt;chr&gt;         &lt;dbl&gt;      &lt;dbl&gt;                  &lt;dbl&gt;
+##  1 MS              426    2943045                   14.5
+##  2 AL              982    5157699                   19.0
+##  3 AR              877    3088354                   28.4
+##  4 SC             1592    5478831                   29.1
+##  5 LA             1692    4597740                   36.8
+##  6 IA             1224    3241488                   37.8
+##  7 IN             2676    6924275                   38.6
+##  8 TX            13140   31290831                   42.0
+##  9 NV             1465    3267467                   44.8
+## 10 KY             2125    4588372                   46.3
+## # ℹ 40 more rows</code></pre>
+</div>
+<div id="summary-statistics" class="section level3">
+<h3>Summary Statistics</h3>
+<p>Before making graphs, I looked at basic summary statistics for
+psychologist availability across states.</p>
+<pre class="r"><code>mental_health_state %&gt;%
+  summarise(
+    number_of_states = n(),
+    mean_rate = mean(psychologists_per_100k, na.rm = TRUE),
+    median_rate = median(psychologists_per_100k, na.rm = TRUE),
+    min_rate = min(psychologists_per_100k, na.rm = TRUE),
+    max_rate = max(psychologists_per_100k, na.rm = TRUE),
+    sd_rate = sd(psychologists_per_100k, na.rm = TRUE)
+  )</code></pre>
+<pre><code>## # A tibble: 1 × 6
+##   number_of_states mean_rate median_rate min_rate max_rate sd_rate
+##              &lt;int&gt;     &lt;dbl&gt;       &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;
+## 1               50      74.5        65.1     14.5     235.    39.0</code></pre>
+<p>The average psychologist availability was about 74.5 psychologists
+per 100,000 people, while the median was about 65.1 psychologists per
+100,000 people.</p>
+<p>The lowest value was about 14.5 psychologists per 100,000 people,
+while the highest value was about 234.7 psychologists per 100,000
+people. This large range suggests that psychologist availability is not
+evenly distributed across states. The standard deviation was about 39.0,
+which also shows that there is a lot of variation in psychologist
+availability across states.</p>
+</div>
+<div id="distribution-of-psychologist-availability"
+class="section level3">
+<h3>Distribution of Psychologist Availability</h3>
+<p>Let’s make a histogram to show how psychologist availability varies
+across states. Each value represents the number of psychologists per
+100,000 people.</p>
+<pre class="r"><code>ggplot(mental_health_state, aes(x = psychologists_per_100k)) +
+  geom_histogram(
+    bins = 15,
+    fill = &quot;#6A5ACD&quot;,
+    color = &quot;white&quot;,
+    linewidth = 0.4
+  ) +
+  geom_vline(
+    aes(xintercept = mean(psychologists_per_100k, na.rm = TRUE)),
+    color = &quot;#E76F51&quot;,
+    linewidth = 1.2,
+    linetype = &quot;dashed&quot;
+  ) +
+  labs(
+    title = &quot;Distribution of Psychologist Availability Across States&quot;,
+    subtitle = &quot;Dashed line shows the mean rate&quot;,
+    x = &quot;Psychologists per 100,000 people&quot;,
+    y = &quot;Number of states&quot;
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;, size = 16),
+    plot.subtitle = element_text(size = 12),
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p08_files/figure-html/histogram-1.png" alt="" width="672" /></p>
+<p>The histogram shows that psychologist availability is not evenly
+distributed across states. Most states are clustered below 100
+psychologists per 100,000 people, with many states falling around the
+40–80 range. However, there is one very high value above 200
+psychologists per 100,000 people, which appears to be an outlier.</p>
+<p>Overall, the histogram suggests that most states have moderate
+psychologist availability, while a small number of states or areas have
+much higher availability.</p>
+</div>
+<div id="check-outlier" class="section level3">
+<h3>Check Outlier</h3>
+<pre class="r"><code>mental_health_state %&gt;%
+  arrange(desc(psychologists_per_100k)) %&gt;%
+  select(state, psychologists, population, psychologists_per_100k) %&gt;%
+  print(n = 10)</code></pre>
+<pre><code>## # A tibble: 50 × 4
+##    state psychologists population psychologists_per_100k
+##    &lt;chr&gt;         &lt;dbl&gt;      &lt;dbl&gt;                  &lt;dbl&gt;
+##  1 DC             1648     702250                   235.
+##  2 CT             5317    3675069                   145.
+##  3 MA            10273    7136171                   144.
+##  4 NY            27701   19867248                   139.
+##  5 RI             1385    1112308                   125.
+##  6 VT              772     648493                   119.
+##  7 CO             6855    5957493                   115.
+##  8 DE             1160    1051917                   110.
+##  9 CA            43112   39431263                   109.
+## 10 MD             6505    6263220                   104.
+## # ℹ 40 more rows</code></pre>
+<p>The isolated value on the far right of the histogram was Washington,
+DC, with about 235 psychologists per 100,000 people.</p>
+<p>This is much higher than the average of about 74.5. DC may be
+different from many states because it has a smaller population and a
+high concentration of universities, hospitals, government agencies, and
+professional services. Because of this, I think I will interpret DC as a
+high-access outlier rather than as a typical state.</p>
+</div>
+<div id="highest-and-lowest-states" class="section level3">
+<h3>Highest and Lowest States</h3>
+<p>The histogram shows the overall distribution of psychologist
+availability, but it does not show which specific states are high or
+low.</p>
+<p>To make the state differences easier to interpret, I created a
+ranking of states of highest and lowest psychologist availability. This
+helps identify which states have below-average access and which states
+have much higher psychologist availability.</p>
+<pre class="r"><code>top_bottom_states &lt;- mental_health_state %&gt;%
+  mutate(
+    rank_high = rank(-psychologists_per_100k),
+    rank_low = rank(psychologists_per_100k)
+  ) %&gt;%
+  filter(rank_high &lt;= 10 | rank_low &lt;= 10) %&gt;%
+  mutate(
+    group = if_else(rank_high &lt;= 10, &quot;Highest availability&quot;, &quot;Lowest availability&quot;),
+    state = factor(state, levels = state[order(psychologists_per_100k)])
+  )
+
+ggplot(top_bottom_states, aes(x = state, y = psychologists_per_100k, fill = group)) +
+  geom_col(width = 0.75) +
+  coord_flip() +
+  scale_fill_manual(
+    values = c(
+      &quot;Highest availability&quot; = &quot;#2A9D8F&quot;,
+      &quot;Lowest availability&quot; = &quot;#E76F51&quot;
+    )
+  ) +
+  labs(
+    title = &quot;States With the Highest and Lowest Psychologist Availability&quot;,
+    subtitle = &quot;Top 10 and bottom 10 states/areas by psychologists per 100,000 people&quot;,
+    x = &quot;State&quot;,
+    y = &quot;Psychologists per 100,000 people&quot;,
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;, size = 16),
+    plot.subtitle = element_text(size = 12),
+    legend.position = &quot;top&quot;,
+    panel.grid.minor = element_blank()
+  )</code></pre>
+<p><img src="p08_files/figure-html/state-ranking-pretty-1.png" alt="" width="672" /></p>
+<p>This plot shows the 10 states/areas with the highest and lowest
+psychologist availability. Washington, DC stands out as the highest
+value, with far more psychologists per 100,000 people than any other
+state or area. Connecticut, Massachusetts, New York, and Rhode Island
+also have relatively high psychologist availability.</p>
+<p>At the lower end, Mississippi, Alabama, Arkansas, South Carolina, and
+Louisiana have the lowest psychologist availability in this dataset. The
+gap between the highest and lowest areas is very large, which shows that
+psychologist availability is not evenly distributed across the United
+States.</p>
+</div>
+<div id="map-of-psychologist-availability" class="section level3">
+<h3>Map of Psychologist Availability</h3>
+<p>Now, let’s try visualizing it in a map to see if psychologist
+availability has geographic patterns.</p>
+<pre class="r"><code>state_map &lt;- map_data(&quot;state&quot;)
+
+state_abbrev_lookup &lt;- tibble(
+  state = state.abb,
+  region = str_to_lower(state.name)
+) %&gt;%
+  bind_rows(
+    tibble(state = &quot;DC&quot;, region = &quot;district of columbia&quot;)
+  )
+
+map_data_joined &lt;- state_map %&gt;%
+  left_join(state_abbrev_lookup, by = &quot;region&quot;) %&gt;%
+  left_join(mental_health_state, by = &quot;state&quot;)
+
+ggplot(map_data_joined, aes(x = long, y = lat, group = group, fill = psychologists_per_100k)) +
+  geom_polygon(color = &quot;white&quot;, linewidth = 0.25) +
+  coord_fixed(1.3) +
+  scale_fill_gradientn(
+    colors = c(&quot;#F7FBFF&quot;, &quot;#C6DBEF&quot;, &quot;#6BAED6&quot;, &quot;#2171B5&quot;, &quot;#08306B&quot;),
+    breaks = c(25, 50, 75, 100, 150, 200),
+    limits = c(0, 240),
+    na.value = &quot;grey80&quot;
+  ) +
+  labs(
+    title = &quot;Psychologist Availability Across U.S. States&quot;,
+    subtitle = &quot;Psychologists per 100,000 people&quot;,
+    fill = &quot;Psychologists\nper 100,000&quot;
+  ) +
+  theme_void(base_size = 13) +
+  theme(
+    plot.title = element_text(face = &quot;bold&quot;, size = 17),
+    plot.subtitle = element_text(size = 12),
+    legend.position = &quot;right&quot;,
+    legend.title = element_text(face = &quot;bold&quot;),
+    legend.key.height = unit(1.2, &quot;cm&quot;)
+  )</code></pre>
+<p><img src="p08_files/figure-html/state-map-1.png" alt="" width="672" /></p>
+<p>The map shows that psychologist availability varies across the United
+States. Darker blue states have more psychologists per 100,000 people,
+while lighter states have fewer psychologists per 100,000 people.</p>
+<p>Several Northeastern states, including Connecticut, Massachusetts,
+New York, and Rhode Island, appear to have higher psychologist
+availability.</p>
+<p>Some Southern states, including Mississippi, Alabama, Arkansas, South
+Carolina, and Louisiana, appear to have lower psychologist
+availability.</p>
+<p>Washington, DC is the darkest area on the map, which matches the
+earlier finding that it had the highest psychologist availability in the
+dataset.</p>
+</div>
 
 
 
