@@ -321,7 +321,8 @@ disengage from distracting singleton colors across blocks.</p>
 <h2>Load Packages</h2>
 <pre class="r"><code>library(tidyverse)
 library(janitor)
-library(scales)</code></pre>
+library(scales)
+library(broom)</code></pre>
 </div>
 <div id="read-the-data" class="section level2">
 <h2>Read the Data</h2>
@@ -361,14 +362,13 @@ glimpse(fix_raw)</code></pre>
 ## $ sing_prob               &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
 ## $ previous_fix_end        &lt;dbl&gt; NA, 21, 271, 523, 781, NA, 156, 222, 390, NA, …
 ## $ current_fix_start       &lt;dbl&gt; 0, 41, 397, 585, 799, 0, 198, 266, 410, 0, 318…</code></pre>
-</div>
-<div id="minimal-cleaning-and-relabeling" class="section level2">
-<h2>Minimal Cleaning and Relabeling</h2>
+<div id="cleaning-and-relabeling" class="section level3">
+<h3>Cleaning and Relabeling</h3>
 <p>The original dataset is fixation-level, meaning a single trial can
-appear on multiple rows if the participant made multiple fixations. I
-convert key variables to numeric, remove practice trials, create
-readable singleton-condition labels, and keep only the experimental
-phase.</p>
+appear on multiple rows if the participant made multiple fixations. We
+once again convert key variables to numeric, remove practice trials,
+create readable singleton-condition labels, and keep only the
+experimental phase.</p>
 <pre class="r"><code>fix_clean &lt;- fix_raw %&gt;%
   mutate(
     subjnum = as.numeric(subjnum),
@@ -402,10 +402,11 @@ phase.</p>
     !is.na(sing_prob)
   )</code></pre>
 </div>
-<div id="helper-function-for-plot-summaries" class="section level2">
-<h2>Helper Function for Plot Summaries</h2>
-<p>For the poster-style figures, I want one mean value per condition and
-block. This helper function calculates the mean and standard error.</p>
+<div id="helper-function-for-plot-summaries" class="section level3">
+<h3>Helper Function for Plot Summaries</h3>
+<p>For the poster figures, I want one mean value per condition and
+block. We are using helper function that calculates the mean and
+standard error.</p>
 <pre class="r"><code>summary_se &lt;- function(data, value_col, group_cols) {
   data %&gt;%
     group_by(across(all_of(group_cols))) %&gt;%
@@ -420,10 +421,11 @@ block. This helper function calculates the mean and standard error.</p>
     )
 }</code></pre>
 </div>
+</div>
 <div id="figure-theme" class="section level2">
 <h2>Figure Theme</h2>
-<p>I used one consistent theme across the figures so that they look like
-they belong together.</p>
+<p>I used one consistent theme across all the figures so that they look
+like they belong together.</p>
 <pre class="r"><code>poster_theme &lt;- theme_minimal(base_size = 13) +
   theme(
     plot.title = element_text(face = &quot;bold&quot;, size = 16),
@@ -526,8 +528,9 @@ rt_cost_summary</code></pre>
 <h2>Interpretation</h2>
 <p>This figure shows whether singleton-present trials were slower than
 singleton-absent trials. Values above zero mean participants were slower
-when the singleton was present. If the lines decrease across blocks,
-that would suggest participants became less distracted over time.</p>
+when the singleton was present. As we can see the lines decrease across
+blocks, which would suggest participants became less distracted over
+time.</p>
 </div>
 </div>
 <div id="classifying-fixations-for-eye-tracking-figures"
@@ -535,7 +538,7 @@ class="section level1">
 <h1>Classifying Fixations for Eye-Tracking Figures</h1>
 <p>The next two figures require knowing whether a fixation landed on the
 target, singleton, or a nonsingleton item. The raw data contain fixation
-coordinates, but not a simple label for the item being fixated. I
+coordinates, but not a simple label for the item being fixated. So, we
 approximate the item by comparing each fixation coordinate to the eight
 possible item locations.</p>
 <pre class="r"><code>screen_width &lt;- 1920
@@ -645,12 +648,9 @@ oculomotor_summary</code></pre>
   ) +
   poster_theme</code></pre>
 <p><img src="p10_files/figure-html/oculomotor-capture-plot-1.png" alt="" width="864" /></p>
-</div>
-<div id="interpretation-1" class="section level2">
-<h2>Interpretation</h2>
 <p>This plot shows how often participants first looked at the singleton
-distractor. A decrease across blocks would suggest that participants
-became better at avoiding the singleton. This is related to the idea of
+distractor. A decrease across blocks suggest that participants became
+better at avoiding the singleton. This is related to the idea of
 oculomotor suppression.</p>
 </div>
 </div>
@@ -662,7 +662,7 @@ class="section level1">
 <p>The previous figure asks whether the singleton captured the eyes.
 This figure asks what happened after the singleton was fixated. Dwell
 time measures how long participants stayed on the singleton once they
-looked at it. Shorter dwell times may suggest faster disengagement.</p>
+looked at it. Shorter dwell times suggest faster disengagement.</p>
 <pre class="r"><code>first_singleton_fix &lt;- fix_items %&gt;%
   filter(
     sing_prob %in% c(&quot;High&quot;, &quot;Low&quot;),
@@ -722,6 +722,179 @@ dwell_summary</code></pre>
   ) +
   poster_theme</code></pre>
 <p><img src="p10_files/figure-html/dwell-block-plot-1.png" alt="" width="864" /></p>
+<p>This plot shows how long participants stayed on the singleton after
+looking at it. As we can see, dwell time decreases across blocks, which
+suggests that participants may be learning to disengage from the
+singleton more quickly. This is related to the idea ofrapid
+disengagement.</p>
+<p>This figure complements the oculomotor capture plot: one figure shows
+whether participants looked at the singleton, while the other shows how
+long they stayed there.</p>
+<div id="exploratory-slope-analysis" class="section level3">
+<h3>Exploratory Slope Analysis</h3>
+<p>When I presented these figures, one question I received was whether I
+had tested the slope of the lines across blocks. The graphs visually
+suggest that oculomotor capture and dwell time may decrease over time,
+but a regression can help quantify whether the trend is negative.</p>
+<p>So I wanted to add practicing that to this piece as well. These
+models estimate whether each outcome changes as block number increases.
+I am treating these as practice models for connecting visualizations to
+numerical summaries, not as the final statistical analysis for the
+research project.</p>
+</div>
+</div>
+<div id="oculomotor-capture-slopes" class="section level2">
+<h2>Oculomotor Capture Slopes</h2>
+<pre class="r"><code>oculomotor_slopes &lt;- oculomotor_by_subject_block %&gt;%
+  group_by(sing_prob) %&gt;%
+  nest() %&gt;%
+  mutate(
+    model = purrr::map(data, ~ lm(oculomotor_capture ~ block_norm, data = .x)),
+    results = purrr::map(model, broom::tidy)
+  ) %&gt;%
+  select(sing_prob, results) %&gt;%
+  unnest(results) %&gt;%
+  filter(term == &quot;block_norm&quot;) %&gt;%
+  select(
+    singleton_condition = sing_prob,
+    slope = estimate,
+    std_error = std.error,
+    statistic,
+    p_value = p.value
+  )
+
+oculomotor_slopes</code></pre>
+<pre><code>## # A tibble: 2 × 5
+## # Groups:   singleton_condition [2]
+##   singleton_condition slope std_error statistic  p_value
+##   &lt;chr&gt;               &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+## 1 High                -1.90     0.255     -7.46 4.44e-13
+## 2 Low                 -1.60     0.359     -4.46 1.04e- 5</code></pre>
+<p>This model estimates the change in oculomotor capture for each
+additional block. The slope analysis showed that oculomotor capture
+decreased across blocks for both singleton conditions.</p>
+<p>In the high-frequency condition, the slope was about -1.90, meaning
+that first fixations on the singleton decreased by about 1.9 percentage
+points per block. In the low-frequency condition, the slope was about
+-1.60, meaning that first fixations on the singleton decreased by about
+1.6 percentage points per block.</p>
+<p>Both slopes were negative, which supports the visual pattern in the
+graph: participants became less likely to look first at the singleton as
+the experiment progressed. This is consistent with the idea that
+participants learned to avoid looking at the singleton over time.</p>
+<p>The p-values were very small for both conditions, suggesting that the
+negative slopes were unlikely to be due to random noise in this
+exploratory model.</p>
+</div>
+<div id="dwell-time-slopes" class="section level2">
+<h2>Dwell Time Slopes</h2>
+<pre class="r"><code>dwell_slopes &lt;- dwell_by_subject_block %&gt;%
+  group_by(sing_prob) %&gt;%
+  nest() %&gt;%
+  mutate(
+    model = purrr::map(data, ~ lm(dwell_time ~ block_norm, data = .x)),
+    results = purrr::map(model, broom::tidy)
+  ) %&gt;%
+  select(sing_prob, results) %&gt;%
+  unnest(results) %&gt;%
+  filter(term == &quot;block_norm&quot;) %&gt;%
+  select(
+    singleton_condition = sing_prob,
+    slope = estimate,
+    std_error = std.error,
+    statistic,
+    p_value = p.value
+  )
+
+dwell_slopes</code></pre>
+<pre><code>## # A tibble: 2 × 5
+## # Groups:   singleton_condition [2]
+##   singleton_condition slope std_error statistic     p_value
+##   &lt;chr&gt;               &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;       &lt;dbl&gt;
+## 1 High                -2.93     0.590     -4.95 0.00000106 
+## 2 Low                 -3.91     0.781     -5.00 0.000000887</code></pre>
+<p>This model estimates the change in first singleton fixation dwell
+time for each additional block. The dwell-time slope analysis showed
+that first singleton fixation dwell time also decreased across
+blocks.</p>
+<p>In the high-frequency condition, dwell time decreased by about 2.9 ms
+per block. In the low-frequency condition, dwell time decreased by about
+3.9 ms per block.</p>
+<p>Again, both slopes were negative, which supports the visual
+interpretation that participants disengaged from the singleton more
+quickly over time. This pattern is consistent with the rapid
+disengagement idea: even when participants looked at the singleton, they
+spent less time looking at it as the task progressed. The p-values were
+very small for both conditions here as well.</p>
+<div id="interaction-models" class="section level3">
+<h3>Interaction Models</h3>
+<p>After estimating separate slopes for the high- and low-frequency
+singleton conditions, I also tested an interaction model. The
+interaction model asks whether the change across blocks differs between
+the two singleton conditions (high vs low).</p>
+</div>
+<div id="oculomotor-capture-interaction" class="section level3">
+<h3>Oculomotor capture interaction</h3>
+<pre class="r"><code>oculomotor_interaction &lt;- lm(
+  oculomotor_capture ~ block_norm * sing_prob,
+  data = oculomotor_by_subject_block
+)
+
+
+broom::tidy(oculomotor_interaction)</code></pre>
+<pre><code>## # A tibble: 4 × 5
+##   term                    estimate std.error statistic  p.value
+##   &lt;chr&gt;                      &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+## 1 (Intercept)               47.6       2.64     18.0   3.23e-62
+## 2 block_norm                -1.90      0.310    -6.13  1.35e- 9
+## 3 sing_probLow               5.35      3.74      1.43  1.53e- 1
+## 4 block_norm:sing_probLow    0.300     0.440     0.682 4.96e- 1</code></pre>
+<p>The interaction model showed a significant negative block effect for
+oculomotor capture.</p>
+<p>In the high-frequency singleton condition, oculomotor capture
+decreased by about 1.90 percentage points per block. This means that
+participants were less likely to make their first fixation on the
+singleton as the experiment progressed.</p>
+<p>The interaction term for the low-frequency condition was not
+significant. This means that the low-frequency slope was not
+statistically different from the high-frequency slope in this simplified
+model. The estimated low-frequency slope was also negative, about -1.60
+percentage points per block.</p>
+<p>Overall, this suggests that both high- and low-frequency singleton
+conditions showed decreasing oculomotor capture over time. The important
+conclusion is that participants looked at the singleton less often
+across blocks, but this simplified model did not show strong evidence
+that the decrease was different between the high- and low-frequency
+conditions.</p>
+</div>
+<div id="dwell-time-interaction-model" class="section level3">
+<h3>Dwell Time Interaction Model</h3>
+<pre class="r"><code>dwell_interaction &lt;- lm(
+  dwell_time ~ block_norm * sing_prob,
+  data = dwell_by_subject_block
+)
+
+broom::tidy(dwell_interaction)</code></pre>
+<pre><code>## # A tibble: 4 × 5
+##   term                    estimate std.error statistic   p.value
+##   &lt;chr&gt;                      &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;
+## 1 (Intercept)              177.        5.54      31.9  2.13e-142
+## 2 block_norm                -2.93      0.664     -4.40 1.21e-  5
+## 3 sing_probLow              12.0       8.03       1.49 1.36e-  1
+## 4 block_norm:sing_probLow   -0.981     0.965     -1.02 3.10e-  1</code></pre>
+<p>The dwell time interaction model showed that first singleton fixation
+dwell time decreased across blocks. This suggests that participants
+became faster at disengaging from the singleton over time.</p>
+<p>However, the interaction term was not significant, meaning the
+decrease was not clearly different between the high- and low-frequency
+conditions.</p>
+<p>Overall for the final poster, these figures and analyses are very
+helpful in communicating two related hypotheses/ideas of our project.
+First, participants may learn to avoid looking at the singleton over
+time. Second, when they do look at the singleton, they may learn to
+disengage from it more quickly. Together, these patterns help visualize
+the learned oculomotor avoidance (combinayion of the two).</p>
+</div>
 </div>
 </div>
 
