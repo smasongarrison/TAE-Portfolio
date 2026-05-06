@@ -11,9 +11,9 @@
 
 
 
-<title>Portfolio 7</title>
+<title>Portfolio 7: Understanding Music Preferences Using Spotify Audio Features 2</title>
 
-<script src="site_libs/header-attrs-2.30/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.31/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
@@ -290,18 +290,1031 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Portfolio 7</h1>
+<h1 class="title toc-ignore">Portfolio 7: Understanding Music
+Preferences Using Spotify Audio Features 2</h1>
+<h3 class="subtitle">Creating Listener Profiles from Spotify Song
+Clusters</h3>
 
 </div>
 
 
 <blockquote>
-<p>The projects should be numbered consecutively (i.e., in the order in
-which you began them), and should include for each project a description
-of the goal, the product (computer program, hand graph, computer graph,
-etc.), the data, and some interpretation. Reports must be reproducible
-and of high quality in terms of writing, grammar, presentation, etc.</p>
+<p>Goal: Moving from my previous piece, I wanted to interpret the
+clusters from my Spotify k-means analysis and turn them into listener
+profiles. My goal was to move beyond the technical model output and
+explain what each cluster might mean in user-centered language.</p>
 </blockquote>
+<div id="load-packages" class="section level3">
+<h3>Load Packages</h3>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.2.0     ✔ readr     2.2.0
+## ✔ forcats   1.0.1     ✔ stringr   1.6.0
+## ✔ ggplot2   4.0.3     ✔ tibble    3.3.1
+## ✔ lubridate 1.9.5     ✔ tidyr     1.3.2
+## ✔ purrr     1.2.1     
+## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>library(knitr)</code></pre>
+</div>
+<div id="read-the-clustered-data" class="section level3">
+<h3>Read the Clustered Data</h3>
+<p>In the previous portfolio piece, I saved a version of the Spotify
+dataset that included the cluster assignment for each song. I am reading
+that file here so I can focus on interpreting the clusters instead of
+rerunning the full k-means process.</p>
+<pre class="r"><code>spotify_clustered &lt;- read_csv(&quot;data/spotify_clustered.csv&quot;, show_col_types = FALSE) %&gt;%
+  mutate(cluster = factor(cluster))
+
+# check the dataset to make sure the cluster column loaded correctly.
+glimpse(spotify_clustered)</code></pre>
+<pre><code>## Rows: 113,999
+## Columns: 14
+## $ track_name       &lt;chr&gt; &quot;Comedy&quot;, &quot;Ghost - Acoustic&quot;, &quot;To Begin Again&quot;, &quot;Can&#39;…
+## $ artists          &lt;chr&gt; &quot;Gen Hoshino&quot;, &quot;Ben Woodward&quot;, &quot;Ingrid Michaelson;ZAY…
+## $ album_name       &lt;chr&gt; &quot;Comedy&quot;, &quot;Ghost (Acoustic)&quot;, &quot;To Begin Again&quot;, &quot;Craz…
+## $ track_genre      &lt;chr&gt; &quot;acoustic&quot;, &quot;acoustic&quot;, &quot;acoustic&quot;, &quot;acoustic&quot;, &quot;acou…
+## $ popularity       &lt;dbl&gt; 73, 55, 57, 71, 82, 58, 74, 80, 74, 56, 74, 69, 52, 6…
+## $ danceability     &lt;dbl&gt; 0.676, 0.420, 0.438, 0.266, 0.618, 0.688, 0.407, 0.70…
+## $ energy           &lt;dbl&gt; 0.4610, 0.1660, 0.3590, 0.0596, 0.4430, 0.4810, 0.147…
+## $ valence          &lt;dbl&gt; 0.7150, 0.2670, 0.1200, 0.1430, 0.1670, 0.6660, 0.076…
+## $ acousticness     &lt;dbl&gt; 0.0322, 0.9240, 0.2100, 0.9050, 0.4690, 0.2890, 0.857…
+## $ instrumentalness &lt;dbl&gt; 1.01e-06, 5.56e-06, 0.00e+00, 7.07e-05, 0.00e+00, 0.0…
+## $ speechiness      &lt;dbl&gt; 0.1430, 0.0763, 0.0557, 0.0363, 0.0526, 0.1050, 0.035…
+## $ liveness         &lt;dbl&gt; 0.3580, 0.1010, 0.1170, 0.1320, 0.0829, 0.1890, 0.091…
+## $ tempo            &lt;dbl&gt; 87.917, 77.489, 76.332, 181.740, 119.949, 98.017, 141…
+## $ cluster          &lt;fct&gt; 4, 3, 3, 3, 3, 4, 3, 4, 4, 3, 3, 3, 3, 3, 4, 1, 3, 3,…</code></pre>
+</div>
+<div id="summarize-each-cluster" class="section level3">
+<h3>Summarize each cluster</h3>
+<p>K-means gives us cluster numbers, but cluster numbers alone are not
+meaningful.</p>
+<p>This summary table helps answer things like, What is Cluster 1 like?
+What is Cluster 2 like? Which cluster is more danceable?…</p>
+<p>Instead of treating the cluster numbers as final answers,we can now
+look at the average audio features in each group. For example, a cluster
+with higher danceability and energy may represent upbeat songs, while a
+cluster with higher acousticness and lower energy may represent calmer
+songs.</p>
+<pre class="r"><code># First summarize each cluster by calculating the average audio features.
+#This helps to understand what makes each cluster different.
+
+cluster_summary &lt;- spotify_clustered %&gt;%
+  group_by(cluster) %&gt;%
+  summarise(
+    n_songs = n(),
+    avg_popularity = mean(popularity, na.rm = TRUE),
+    avg_danceability = mean(danceability, na.rm = TRUE),
+    avg_energy = mean(energy, na.rm = TRUE),
+    avg_valence = mean(valence, na.rm = TRUE),
+    avg_acousticness = mean(acousticness, na.rm = TRUE),
+    avg_instrumentalness = mean(instrumentalness, na.rm = TRUE),
+    avg_speechiness = mean(speechiness, na.rm = TRUE),
+    avg_liveness = mean(liveness, na.rm = TRUE),
+    avg_tempo = mean(tempo, na.rm = TRUE),
+    .groups = &quot;drop&quot;
+  )
+
+cluster_summary %&gt;%
+  mutate(across(where(is.numeric), round, 2)) %&gt;%
+  knitr::kable(
+    caption = &quot;Average audio features by cluster&quot;
+  )</code></pre>
+<pre><code>## Warning: There was 1 warning in `mutate()`.
+## ℹ In argument: `across(where(is.numeric), round, 2)`.
+## Caused by warning:
+## ! The `...` argument of `across()` is deprecated as of dplyr 1.1.0.
+## Supply arguments directly to `.fns` through an anonymous function instead.
+## 
+##   # Previously
+##   across(a:b, mean, na.rm = TRUE)
+## 
+##   # Now
+##   across(a:b, \(x) mean(x, na.rm = TRUE))</code></pre>
+<table>
+<caption>Average audio features by cluster</caption>
+<colgroup>
+<col width="5%" />
+<col width="5%" />
+<col width="10%" />
+<col width="11%" />
+<col width="7%" />
+<col width="8%" />
+<col width="11%" />
+<col width="14%" />
+<col width="10%" />
+<col width="8%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">cluster</th>
+<th align="right">n_songs</th>
+<th align="right">avg_popularity</th>
+<th align="right">avg_danceability</th>
+<th align="right">avg_energy</th>
+<th align="right">avg_valence</th>
+<th align="right">avg_acousticness</th>
+<th align="right">avg_instrumentalness</th>
+<th align="right">avg_speechiness</th>
+<th align="right">avg_liveness</th>
+<th align="right">avg_tempo</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">1</td>
+<td align="right">34006</td>
+<td align="right">34.15</td>
+<td align="right">0.49</td>
+<td align="right">0.80</td>
+<td align="right">0.32</td>
+<td align="right">0.07</td>
+<td align="right">0.22</td>
+<td align="right">0.08</td>
+<td align="right">0.19</td>
+<td align="right">136.42</td>
+</tr>
+<tr class="even">
+<td align="left">2</td>
+<td align="right">8868</td>
+<td align="right">33.97</td>
+<td align="right">0.53</td>
+<td align="right">0.74</td>
+<td align="right">0.49</td>
+<td align="right">0.35</td>
+<td align="right">0.08</td>
+<td align="right">0.19</td>
+<td align="right">0.73</td>
+<td align="right">120.77</td>
+</tr>
+<tr class="odd">
+<td align="left">3</td>
+<td align="right">25626</td>
+<td align="right">31.94</td>
+<td align="right">0.46</td>
+<td align="right">0.30</td>
+<td align="right">0.30</td>
+<td align="right">0.77</td>
+<td align="right">0.29</td>
+<td align="right">0.05</td>
+<td align="right">0.15</td>
+<td align="right">109.66</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="right">45499</td>
+<td align="right">33.15</td>
+<td align="right">0.69</td>
+<td align="right">0.70</td>
+<td align="right">0.68</td>
+<td align="right">0.24</td>
+<td align="right">0.05</td>
+<td align="right">0.09</td>
+<td align="right">0.16</td>
+<td align="right">118.78</td>
+</tr>
+</tbody>
+</table>
+<p>The cluster summary table gives the good overview of how the four
+groups differ. Each row represents one cluster, and each column shows
+the average value of an audio feature within that cluster.</p>
+<ul>
+<li><p>Cluster 1 has the highest average energy and very low
+acousticness.</p>
+<ul>
+<li>It also has lower valence, meaning these songs are energetic but not
+necessarily happy or positive-sounding. I interpret this cluster as
+intense, high-energy music.</li>
+</ul></li>
+<li><p>Cluster 2 stands out because it has the highest liveness and the
+highest speechiness.</p>
+<ul>
+<li>This suggests that these songs may feel more performance-based,
+live, voice-forward, or spoken-word-heavy compared with the other
+clusters.</li>
+</ul></li>
+<li><p>Cluster 3 has the highest acousticness and the lowest energy. It
+also has lower valence.</p>
+<ul>
+<li>This suggests a calmer, softer, or more reflective group of
+songs.</li>
+</ul></li>
+<li><p>Cluster 4 has the highest danceability and highest valence, while
+also having high energy.</p>
+<ul>
+<li>I think this makes it the clearest “feel-good” or upbeat
+cluster.</li>
+</ul></li>
+</ul>
+</div>
+<div id="lets-make-a-cluster-scatterplot" class="section level3">
+<h3>Let’s make a cluster scatterplot!</h3>
+<p>This plot shows the clusters using danceability and energy. Each
+point is a song, and the color shows which cluster it belongs to.</p>
+<pre class="r"><code>ggplot(
+  spotify_clustered,
+  aes(x = danceability, y = energy, color = cluster)
+) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  scale_color_manual(
+    values = c(
+      &quot;1&quot; = &quot;#6A4C93&quot;,
+      &quot;2&quot; = &quot;#1982C4&quot;,
+      &quot;3&quot; = &quot;#8AC926&quot;,
+      &quot;4&quot; = &quot;#FFCA3A&quot;
+    )
+  ) +
+  labs(
+    title = &quot;Song Clusters by Danceability and Energy&quot;,
+    subtitle = &quot;Each point is a song. Colors show the cluster assigned by k-means.&quot;,
+    x = &quot;Danceability&quot;,
+    y = &quot;Energy&quot;,
+    color = &quot;Cluster&quot;
+  ) +
+  theme_minimal()</code></pre>
+<p><img src="p07_files/figure-html/dance-energy-plot-1.png" alt="" width="672" /></p>
+<p>Yikes, looks a lot!</p>
+<p>The full dataset has many songs, so plotting every point makes the
+graph crowded.</p>
+<p>How about I use a random sample of songs to make the pattern easier
+to see?</p>
+<pre class="r"><code>set.seed(123)
+
+spotify_plot_sample &lt;- spotify_clustered %&gt;%
+  sample_n(size = min(10000, nrow(spotify_clustered)))
+
+ggplot(
+  spotify_plot_sample,
+  aes(x = danceability, y = energy, color = cluster)
+) +
+  geom_point(alpha = 0.35, size = 1.4) +
+  scale_color_manual(
+    values = c(
+      &quot;1&quot; = &quot;#6A4C93&quot;,
+      &quot;2&quot; = &quot;#1982C4&quot;,
+      &quot;3&quot; = &quot;#8AC926&quot;,
+      &quot;4&quot; = &quot;#FFCA3A&quot;
+    )
+  ) +
+  labs(
+    title = &quot;Song Clusters by Danceability and Energy&quot;,
+    subtitle = &quot;This plot uses a sample of songs to reduce overplotting.&quot;,
+    x = &quot;Danceability&quot;,
+    y = &quot;Energy&quot;,
+    color = &quot;Cluster&quot;
+  ) +
+  theme_minimal()</code></pre>
+<p><img src="p07_files/figure-html/cluster%20plot%20sample-1.png" alt="" width="672" /></p>
+<p>Looks better, but still a bit messy.</p>
+</div>
+<div id="mood-plot" class="section level3">
+<h3>Mood Plot</h3>
+<p>How about making a mood plot? Let’s see the clusters using valence
+and energy. I am using the sample here as well. Valence represents how
+positive or happy a song sounds (so, mooody!).</p>
+<pre class="r"><code>ggplot(
+  spotify_plot_sample,
+  aes(x = valence, y = energy, color = cluster)
+) +
+  geom_point(alpha = 0.35, size = 1.4) +
+  scale_color_manual(
+    values = c(
+      &quot;1&quot; = &quot;#6A4C93&quot;,
+      &quot;2&quot; = &quot;#1982C4&quot;,
+      &quot;3&quot; = &quot;#8AC926&quot;,
+      &quot;4&quot; = &quot;#FFCA3A&quot;
+    )
+  ) +
+  labs(
+    title = &quot;Song Clusters by Mood Features&quot;,
+    subtitle = &quot;This view helps connect clusters to possible moods or listening contexts.&quot;,
+    x = &quot;Valence / Positivity&quot;,
+    y = &quot;Energy&quot;,
+    color = &quot;Cluster&quot;
+  ) +
+  theme_minimal()</code></pre>
+<p><img src="p07_files/figure-html/mood%20plot%20sample-1.png" alt="" width="672" /></p>
+<p>Right about now, I am kind of regretting this direction. Big yikes?
+The plots are still looking a bit messy, but let’s see.</p>
+</div>
+<div id="better-plot-for-interpreting-the-clusters"
+class="section level3">
+<h3>Better plot for interpreting the clusters</h3>
+<p>Let’s try another approach. How about making a plot that shows the
+<strong>average feature values</strong> for each cluster. I am thinking
+it might make it easier to compare the “personality” of the
+clusters.</p>
+<pre class="r"><code>cluster_summary %&gt;%
+  select(
+    cluster,
+    avg_danceability,
+    avg_energy,
+    avg_valence,
+    avg_acousticness,
+    avg_instrumentalness,
+    avg_speechiness,
+    avg_liveness
+  ) %&gt;%
+  pivot_longer(
+    cols = -cluster,
+    names_to = &quot;feature&quot;,
+    values_to = &quot;average_value&quot;
+  ) %&gt;%
+  mutate(
+    feature = str_remove(feature, &quot;avg_&quot;),
+    feature = str_to_title(feature)
+  ) %&gt;%
+  ggplot(aes(x = feature, y = average_value, fill = cluster)) +
+  geom_col(position = &quot;dodge&quot;) +
+  scale_fill_manual(
+    values = c(
+      &quot;1&quot; = &quot;#6A4C93&quot;,
+      &quot;2&quot; = &quot;#1982C4&quot;,
+      &quot;3&quot; = &quot;#8AC926&quot;,
+      &quot;4&quot; = &quot;#FFCA3A&quot;
+    )
+  ) +
+  labs(
+    title = &quot;Average Audio Features by Cluster&quot;,
+    subtitle = &quot;This plot helps interpret what makes each cluster different.&quot;,
+    x = &quot;Audio feature&quot;,
+    y = &quot;Average value&quot;,
+    fill = &quot;Cluster&quot;
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1)
+  )</code></pre>
+<p><img src="p07_files/figure-html/cluster-profile-plot-1.png" alt="" width="672" /></p>
+<p>Ok, the average audio features plot makes the cluster differences
+easier to see visually. Instead of looking at individual songs, this
+plot compares the average feature profile of each cluster.</p>
+<p>The biggest differences appear in acousticness, energy, liveness, and
+valence.</p>
+<ul>
+<li><p>Cluster 3 is much higher in acousticness than the other clusters,
+which supports the idea that this group represents calmer or more
+acoustic songs.</p></li>
+<li><p>Cluster 1 is highest in energy and very low in acousticness,
+making it feel more intense.</p></li>
+<li><p>Cluster 2 is clearly highest in liveness and also higher in
+speechiness, which helps separate it from the other groups.</p></li>
+<li><p>Cluster 4 is highest in danceability and valence, suggesting
+upbeat songs that may be easier to dance to or use for mood-boosting
+listening.</p></li>
+</ul>
+<p>This plot is more helpful than the scatterplots because it summarizes
+all of the key audio features at once. The scatterplots only show two
+variables at a time and they ended up messy, while this plot shows the
+broader profile of each cluster.</p>
+</div>
+<div id="show-example-songs-from-each-cluster" class="section level3">
+<h3>Show example songs from each cluster</h3>
+<p>Since the cluster plots aren’t really telling us much, how about we
+select popular songs from each cluster? I am thinking this can help us
+understand what the clusters actually sound like in real life.</p>
+<pre class="r"><code>example_songs &lt;- spotify_clustered %&gt;%
+  group_by(cluster) %&gt;%
+  arrange(desc(popularity)) %&gt;%
+  slice_head(n = 5) %&gt;%
+  ungroup() %&gt;%
+  select(
+    cluster,
+    track_name,
+    artists,
+    track_genre,
+    popularity,
+    danceability,
+    energy,
+    valence
+  )
+
+knitr::kable(
+  example_songs,
+  digits = 2,
+  caption = &quot;Popular example songs from each cluster&quot;
+)</code></pre>
+<table>
+<caption>Popular example songs from each cluster</caption>
+<colgroup>
+<col width="6%" />
+<col width="31%" />
+<col width="19%" />
+<col width="9%" />
+<col width="9%" />
+<col width="10%" />
+<col width="5%" />
+<col width="6%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">cluster</th>
+<th align="left">track_name</th>
+<th align="left">artists</th>
+<th align="left">track_genre</th>
+<th align="right">popularity</th>
+<th align="right">danceability</th>
+<th align="right">energy</th>
+<th align="right">valence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">1</td>
+<td align="left">Unholy (feat. Kim Petras)</td>
+<td align="left">Sam Smith;Kim Petras</td>
+<td align="left">dance</td>
+<td align="right">100</td>
+<td align="right">0.71</td>
+<td align="right">0.47</td>
+<td align="right">0.24</td>
+</tr>
+<tr class="even">
+<td align="left">1</td>
+<td align="left">Unholy (feat. Kim Petras)</td>
+<td align="left">Sam Smith;Kim Petras</td>
+<td align="left">pop</td>
+<td align="right">100</td>
+<td align="right">0.71</td>
+<td align="right">0.47</td>
+<td align="right">0.24</td>
+</tr>
+<tr class="odd">
+<td align="left">1</td>
+<td align="left">I’m Good (Blue)</td>
+<td align="left">David Guetta;Bebe Rexha</td>
+<td align="left">dance</td>
+<td align="right">98</td>
+<td align="right">0.56</td>
+<td align="right">0.96</td>
+<td align="right">0.30</td>
+</tr>
+<tr class="even">
+<td align="left">1</td>
+<td align="left">I’m Good (Blue)</td>
+<td align="left">David Guetta;Bebe Rexha</td>
+<td align="left">edm</td>
+<td align="right">98</td>
+<td align="right">0.56</td>
+<td align="right">0.96</td>
+<td align="right">0.30</td>
+</tr>
+<tr class="odd">
+<td align="left">1</td>
+<td align="left">I’m Good (Blue)</td>
+<td align="left">David Guetta;Bebe Rexha</td>
+<td align="left">pop</td>
+<td align="right">98</td>
+<td align="right">0.56</td>
+<td align="right">0.96</td>
+<td align="right">0.30</td>
+</tr>
+<tr class="even">
+<td align="left">2</td>
+<td align="left">Ojitos Lindos</td>
+<td align="left">Bad Bunny;Bomba Estéreo</td>
+<td align="left">latin</td>
+<td align="right">95</td>
+<td align="right">0.65</td>
+<td align="right">0.69</td>
+<td align="right">0.27</td>
+</tr>
+<tr class="odd">
+<td align="left">2</td>
+<td align="left">Ojitos Lindos</td>
+<td align="left">Bad Bunny;Bomba Estéreo</td>
+<td align="left">latino</td>
+<td align="right">95</td>
+<td align="right">0.65</td>
+<td align="right">0.69</td>
+<td align="right">0.27</td>
+</tr>
+<tr class="even">
+<td align="left">2</td>
+<td align="left">Ojitos Lindos</td>
+<td align="left">Bad Bunny;Bomba Estéreo</td>
+<td align="left">reggae</td>
+<td align="right">94</td>
+<td align="right">0.65</td>
+<td align="right">0.69</td>
+<td align="right">0.27</td>
+</tr>
+<tr class="odd">
+<td align="left">2</td>
+<td align="left">Ojitos Lindos</td>
+<td align="left">Bad Bunny;Bomba Estéreo</td>
+<td align="left">reggaeton</td>
+<td align="right">94</td>
+<td align="right">0.65</td>
+<td align="right">0.69</td>
+<td align="right">0.27</td>
+</tr>
+<tr class="even">
+<td align="left">2</td>
+<td align="left">Tarot</td>
+<td align="left">Bad Bunny;Jhayco</td>
+<td align="left">latin</td>
+<td align="right">91</td>
+<td align="right">0.80</td>
+<td align="right">0.68</td>
+<td align="right">0.42</td>
+</tr>
+<tr class="odd">
+<td align="left">3</td>
+<td align="left">Glimpse of Us</td>
+<td align="left">Joji</td>
+<td align="left">pop</td>
+<td align="right">94</td>
+<td align="right">0.44</td>
+<td align="right">0.32</td>
+<td align="right">0.27</td>
+</tr>
+<tr class="even">
+<td align="left">3</td>
+<td align="left">Another Love</td>
+<td align="left">Tom Odell</td>
+<td align="left">chill</td>
+<td align="right">93</td>
+<td align="right">0.44</td>
+<td align="right">0.54</td>
+<td align="right">0.13</td>
+</tr>
+<tr class="odd">
+<td align="left">3</td>
+<td align="left">Another Love</td>
+<td align="left">Tom Odell</td>
+<td align="left">pop</td>
+<td align="right">93</td>
+<td align="right">0.44</td>
+<td align="right">0.54</td>
+<td align="right">0.13</td>
+</tr>
+<tr class="even">
+<td align="left">3</td>
+<td align="left">Running Up That Hill (A Deal With God)</td>
+<td align="left">Kate Bush</td>
+<td align="left">piano</td>
+<td align="right">90</td>
+<td align="right">0.63</td>
+<td align="right">0.55</td>
+<td align="right">0.20</td>
+</tr>
+<tr class="odd">
+<td align="left">3</td>
+<td align="left">Until I Found You</td>
+<td align="left">Stephen Sanchez</td>
+<td align="left">pop</td>
+<td align="right">90</td>
+<td align="right">0.54</td>
+<td align="right">0.51</td>
+<td align="right">0.23</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="left">Quevedo: Bzrp Music Sessions, Vol. 52</td>
+<td align="left">Bizarrap;Quevedo</td>
+<td align="left">hip-hop</td>
+<td align="right">99</td>
+<td align="right">0.62</td>
+<td align="right">0.78</td>
+<td align="right">0.55</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">La Bachata</td>
+<td align="left">Manuel Turizo</td>
+<td align="left">latin</td>
+<td align="right">98</td>
+<td align="right">0.84</td>
+<td align="right">0.68</td>
+<td align="right">0.85</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="left">La Bachata</td>
+<td align="left">Manuel Turizo</td>
+<td align="left">latino</td>
+<td align="right">98</td>
+<td align="right">0.84</td>
+<td align="right">0.68</td>
+<td align="right">0.85</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">La Bachata</td>
+<td align="left">Manuel Turizo</td>
+<td align="left">reggae</td>
+<td align="right">98</td>
+<td align="right">0.84</td>
+<td align="right">0.68</td>
+<td align="right">0.85</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="left">La Bachata</td>
+<td align="left">Manuel Turizo</td>
+<td align="left">reggaeton</td>
+<td align="right">98</td>
+<td align="right">0.84</td>
+<td align="right">0.68</td>
+<td align="right">0.85</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="clean-up-the-example-songs-table" class="section level3">
+<h3>Clean up the example songs table</h3>
+<p>Some songs appear more than once in the dataset because they are
+listed under multiple genres. I am removing duplicate track/artist
+combinations so the example table is easier to read.</p>
+<pre class="r"><code>example_songs &lt;- spotify_clustered %&gt;%
+  distinct(track_name, artists, .keep_all = TRUE) %&gt;%
+  group_by(cluster) %&gt;%
+  arrange(desc(popularity)) %&gt;%
+  slice_head(n = 5) %&gt;%
+  ungroup() %&gt;%
+  select(
+    cluster,
+    track_name,
+    artists,
+    track_genre,
+    popularity,
+    danceability,
+    energy,
+    valence
+  )
+
+knitr::kable(
+  example_songs,
+  digits = 2,
+  caption = &quot;Popular example songs from each cluster&quot;
+)</code></pre>
+<table style="width:100%;">
+<caption>Popular example songs from each cluster</caption>
+<colgroup>
+<col width="4%" />
+<col width="36%" />
+<col width="27%" />
+<col width="7%" />
+<col width="6%" />
+<col width="7%" />
+<col width="4%" />
+<col width="4%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">cluster</th>
+<th align="left">track_name</th>
+<th align="left">artists</th>
+<th align="left">track_genre</th>
+<th align="right">popularity</th>
+<th align="right">danceability</th>
+<th align="right">energy</th>
+<th align="right">valence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">1</td>
+<td align="left">Unholy (feat. Kim Petras)</td>
+<td align="left">Sam Smith;Kim Petras</td>
+<td align="left">dance</td>
+<td align="right">100</td>
+<td align="right">0.71</td>
+<td align="right">0.47</td>
+<td align="right">0.24</td>
+</tr>
+<tr class="even">
+<td align="left">1</td>
+<td align="left">I’m Good (Blue)</td>
+<td align="left">David Guetta;Bebe Rexha</td>
+<td align="left">dance</td>
+<td align="right">98</td>
+<td align="right">0.56</td>
+<td align="right">0.96</td>
+<td align="right">0.30</td>
+</tr>
+<tr class="odd">
+<td align="left">1</td>
+<td align="left">Tití Me Preguntó</td>
+<td align="left">Bad Bunny</td>
+<td align="left">latin</td>
+<td align="right">97</td>
+<td align="right">0.65</td>
+<td align="right">0.72</td>
+<td align="right">0.19</td>
+</tr>
+<tr class="even">
+<td align="left">1</td>
+<td align="left">As It Was</td>
+<td align="left">Harry Styles</td>
+<td align="left">pop</td>
+<td align="right">95</td>
+<td align="right">0.52</td>
+<td align="right">0.73</td>
+<td align="right">0.66</td>
+</tr>
+<tr class="odd">
+<td align="left">1</td>
+<td align="left">Sweater Weather</td>
+<td align="left">The Neighbourhood</td>
+<td align="left">alt-rock</td>
+<td align="right">93</td>
+<td align="right">0.61</td>
+<td align="right">0.81</td>
+<td align="right">0.40</td>
+</tr>
+<tr class="even">
+<td align="left">2</td>
+<td align="left">Ojitos Lindos</td>
+<td align="left">Bad Bunny;Bomba Estéreo</td>
+<td align="left">latin</td>
+<td align="right">95</td>
+<td align="right">0.65</td>
+<td align="right">0.69</td>
+<td align="right">0.27</td>
+</tr>
+<tr class="odd">
+<td align="left">2</td>
+<td align="left">Tarot</td>
+<td align="left">Bad Bunny;Jhayco</td>
+<td align="left">latin</td>
+<td align="right">91</td>
+<td align="right">0.80</td>
+<td align="right">0.68</td>
+<td align="right">0.42</td>
+</tr>
+<tr class="even">
+<td align="left">2</td>
+<td align="left">You Proof</td>
+<td align="left">Morgan Wallen</td>
+<td align="left">country</td>
+<td align="right">86</td>
+<td align="right">0.73</td>
+<td align="right">0.85</td>
+<td align="right">0.64</td>
+</tr>
+<tr class="odd">
+<td align="left">2</td>
+<td align="left">Enemy (with JID) - from the series Arcane League of
+Legends</td>
+<td align="left">Imagine Dragons;JID;Arcane;League of Legends</td>
+<td align="left">rock</td>
+<td align="right">86</td>
+<td align="right">0.73</td>
+<td align="right">0.78</td>
+<td align="right">0.56</td>
+</tr>
+<tr class="even">
+<td align="left">2</td>
+<td align="left">Stan</td>
+<td align="left">Eminem;Dido</td>
+<td align="left">hip-hop</td>
+<td align="right">85</td>
+<td align="right">0.78</td>
+<td align="right">0.77</td>
+<td align="right">0.51</td>
+</tr>
+<tr class="odd">
+<td align="left">3</td>
+<td align="left">Glimpse of Us</td>
+<td align="left">Joji</td>
+<td align="left">pop</td>
+<td align="right">94</td>
+<td align="right">0.44</td>
+<td align="right">0.32</td>
+<td align="right">0.27</td>
+</tr>
+<tr class="even">
+<td align="left">3</td>
+<td align="left">Another Love</td>
+<td align="left">Tom Odell</td>
+<td align="left">chill</td>
+<td align="right">93</td>
+<td align="right">0.44</td>
+<td align="right">0.54</td>
+<td align="right">0.13</td>
+</tr>
+<tr class="odd">
+<td align="left">3</td>
+<td align="left">Running Up That Hill (A Deal With God)</td>
+<td align="left">Kate Bush</td>
+<td align="left">piano</td>
+<td align="right">90</td>
+<td align="right">0.63</td>
+<td align="right">0.55</td>
+<td align="right">0.20</td>
+</tr>
+<tr class="even">
+<td align="left">3</td>
+<td align="left">Until I Found You</td>
+<td align="left">Stephen Sanchez</td>
+<td align="left">pop</td>
+<td align="right">90</td>
+<td align="right">0.54</td>
+<td align="right">0.51</td>
+<td align="right">0.23</td>
+</tr>
+<tr class="odd">
+<td align="left">3</td>
+<td align="left">lovely (with Khalid)</td>
+<td align="left">Billie Eilish;Khalid</td>
+<td align="left">pop</td>
+<td align="right">89</td>
+<td align="right">0.35</td>
+<td align="right">0.30</td>
+<td align="right">0.12</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="left">Quevedo: Bzrp Music Sessions, Vol. 52</td>
+<td align="left">Bizarrap;Quevedo</td>
+<td align="left">hip-hop</td>
+<td align="right">99</td>
+<td align="right">0.62</td>
+<td align="right">0.78</td>
+<td align="right">0.55</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">La Bachata</td>
+<td align="left">Manuel Turizo</td>
+<td align="left">latin</td>
+<td align="right">98</td>
+<td align="right">0.84</td>
+<td align="right">0.68</td>
+<td align="right">0.85</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="left">Me Porto Bonito</td>
+<td align="left">Bad Bunny;Chencho Corleone</td>
+<td align="left">latin</td>
+<td align="right">97</td>
+<td align="right">0.91</td>
+<td align="right">0.71</td>
+<td align="right">0.42</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">Under The Influence</td>
+<td align="left">Chris Brown</td>
+<td align="left">dance</td>
+<td align="right">96</td>
+<td align="right">0.73</td>
+<td align="right">0.69</td>
+<td align="right">0.31</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="left">Efecto</td>
+<td align="left">Bad Bunny</td>
+<td align="left">latin</td>
+<td align="right">96</td>
+<td align="right">0.80</td>
+<td align="right">0.48</td>
+<td align="right">0.23</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="compare-popularity-by-cluster" class="section level3">
+<h3>Compare popularity by cluster</h3>
+<p>Now, let’s compare average popularity across clusters. We can see
+whether some song profiles are more popular on average.</p>
+<pre class="r"><code>ggplot(cluster_summary, aes(x = cluster, y = avg_popularity, fill = cluster)) +
+  geom_col(width = 0.7) +
+  scale_fill_manual(
+    values = c(
+      &quot;1&quot; = &quot;#6A4C93&quot;,
+      &quot;2&quot; = &quot;#1982C4&quot;,
+      &quot;3&quot; = &quot;#8AC926&quot;,
+      &quot;4&quot; = &quot;#FFCA3A&quot;
+    )
+  ) +
+  labs(
+    title = &quot;Average Popularity by Cluster&quot;,
+    subtitle = &quot;This compares whether some song profiles are more popular on average.&quot;,
+    x = &quot;Cluster&quot;,
+    y = &quot;Average popularity&quot;
+  ) +
+  theme_minimal() +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="p07_files/figure-html/popularity-by-cluster-1.png" alt="" width="672" /></p>
+<p>Average popularity was fairly similar across the four clusters.
+Cluster 3 had the lowest average popularity, while Clusters 1 and 2 were
+slightly higher. However, the differences are not large, so I would
+interpret this cautiously. This suggests that the clusters are more
+useful for understanding different song profiles than for explaining
+popularity.</p>
+</div>
+<div id="create-listener-profiles" class="section level3">
+<h3>Create listener profiles</h3>
+<p>As a final attempt to make this piece have a more meaningful
+direction and the custers easier to understand, I am going to try to
+translate the four clusters into listener profiles.</p>
+<p>These profiles are not real users from survey data. Instead, they are
+interpretations based on the audio patterns in each cluster. Instead of
+leaving the groups as Cluster 1, Cluster 2, Cluster 3, and Cluster 4, I
+gave each group a name based on its audio pattern. This step helped me
+connect the technical model output to user-centered language.</p>
+<pre class="r"><code>listener_profiles &lt;- tibble(
+  Cluster = c(&quot;1&quot;, &quot;2&quot;, &quot;3&quot;, &quot;4&quot;),
+  Listener_Profile = c(
+    &quot;The Intense Listener&quot;,
+    &quot;The Live/Voice Listener&quot;,
+    &quot;The Calm Acoustic Listener&quot;,
+    &quot;The Feel-Good Listener&quot;
+  ),
+  Audio_Pattern = c(
+    &quot;High energy, low acousticness, lower valence&quot;,
+    &quot;High liveness, higher speechiness, high energy&quot;,
+    &quot;High acousticness, low energy, lower valence&quot;,
+    &quot;High danceability, high energy, high valence&quot;
+  ),
+  Possible_Use_Case = c(
+    &quot;Workouts, intense focus, dramatic or high-energy listening&quot;,
+    &quot;Live performances, voice-forward music, rap or spoken-word-heavy listening&quot;,
+    &quot;Studying, relaxing, reflective listening, background music&quot;,
+    &quot;Dancing, commuting, social settings, mood boosting&quot;
+  )
+)
+
+knitr::kable(
+  listener_profiles,
+  caption = &quot;Listener profiles based on the four Spotify song clusters&quot;
+)</code></pre>
+<table>
+<caption>Listener profiles based on the four Spotify song
+clusters</caption>
+<colgroup>
+<col width="5%" />
+<col width="17%" />
+<col width="29%" />
+<col width="47%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Cluster</th>
+<th align="left">Listener_Profile</th>
+<th align="left">Audio_Pattern</th>
+<th align="left">Possible_Use_Case</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">1</td>
+<td align="left">The Intense Listener</td>
+<td align="left">High energy, low acousticness, lower valence</td>
+<td align="left">Workouts, intense focus, dramatic or high-energy
+listening</td>
+</tr>
+<tr class="even">
+<td align="left">2</td>
+<td align="left">The Live/Voice Listener</td>
+<td align="left">High liveness, higher speechiness, high energy</td>
+<td align="left">Live performances, voice-forward music, rap or
+spoken-word-heavy listening</td>
+</tr>
+<tr class="odd">
+<td align="left">3</td>
+<td align="left">The Calm Acoustic Listener</td>
+<td align="left">High acousticness, low energy, lower valence</td>
+<td align="left">Studying, relaxing, reflective listening, background
+music</td>
+</tr>
+<tr class="even">
+<td align="left">4</td>
+<td align="left">The Feel-Good Listener</td>
+<td align="left">High danceability, high energy, high valence</td>
+<td align="left">Dancing, commuting, social settings, mood boosting</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="conclusion" class="section level3">
+<h3>Conclusion</h3>
+<p>For this portfolio piece, I used Spotify audio features to explore
+whether songs could be grouped into meaningful listening profiles.</p>
+<p>The scatterplots were useful as a first look, but they were not
+enough to fully interpret the clusters. Even after using a sample of
+songs, the points still overlapped because the dataset contains many
+tracks and the clustering model used several features at once. This
+helped me understand that a two-dimensional plot can sometimes hide the
+full structure of a clustering model. The cluster summary table and
+average feature plot were more useful because they showed the average
+profile of each group across multiple audio features.</p>
+<p>This project helped me practice moving from data cleaning, to
+modeling, to interpretation. I also learned that the most important part
+of clustering is not just creating the groups, but explaining what those
+groups might mean. In the future, I would like to try practiicing in
+turning this kind of analysis into a recommendation tool, or playlist
+generator where users explore songs based on different listening
+profiles.</p>
+</div>
 
 
 

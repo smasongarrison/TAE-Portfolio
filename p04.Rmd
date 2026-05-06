@@ -1,5 +1,5 @@
 ---
-title: "Portfolio 4: Exploratory Analysis of Reading Attention Patterns"
+title: "Portfolio 4: Analysis of Reading Attention Patterns"
 ---
 
 > Goal:

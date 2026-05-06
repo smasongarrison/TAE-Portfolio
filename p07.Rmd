@@ -1,5 +1,365 @@
 ---
-title: "Portfolio 7"
+title: "Portfolio 7: Understanding Music Preferences Using Spotify Audio Features 2"
+subtitle: "Creating Listener Profiles from Spotify Song Clusters"
 ---
 
-> The projects should be numbered consecutively (i.e., in the order in which you began them), and should include for each project a description of the goal, the product (computer program, hand graph, computer graph, etc.), the data, and some interpretation. Reports must be reproducible and of high quality in terms of writing, grammar, presentation, etc.
+> Goal:
+Moving from my previous piece, I wanted to interpret the clusters from my Spotify k-means analysis and turn them into listener profiles. My goal was to move beyond the technical model output and explain what each cluster might mean in user-centered language.
+
+### Load Packages
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+```
+
+### Read the Clustered Data
+
+In the previous portfolio piece, I saved a version of the Spotify dataset that included the cluster assignment for each song. I am reading that file here so I can focus on interpreting the clusters instead of rerunning the full k-means process.
+
+```{r read cluster data}
+spotify_clustered <- read_csv("data/spotify_clustered.csv", show_col_types = FALSE) %>%
+  mutate(cluster = factor(cluster))
+
+# check the dataset to make sure the cluster column loaded correctly.
+glimpse(spotify_clustered)
+```
+
+### Summarize each cluster
+
+K-means gives us cluster numbers, but cluster numbers alone are not meaningful.
+
+This summary table helps answer things like, What is Cluster 1 like? What is Cluster 2 like? Which cluster is more danceable?...
+
+Instead of treating the cluster numbers as final answers,we can now look at the average audio features in each group. For example, a cluster with higher danceability and energy may represent upbeat songs, while a cluster with higher acousticness and lower energy may represent calmer songs.
+
+```{r cluster summary}
+# First summarize each cluster by calculating the average audio features.
+#This helps to understand what makes each cluster different.
+
+cluster_summary <- spotify_clustered %>%
+  group_by(cluster) %>%
+  summarise(
+    n_songs = n(),
+    avg_popularity = mean(popularity, na.rm = TRUE),
+    avg_danceability = mean(danceability, na.rm = TRUE),
+    avg_energy = mean(energy, na.rm = TRUE),
+    avg_valence = mean(valence, na.rm = TRUE),
+    avg_acousticness = mean(acousticness, na.rm = TRUE),
+    avg_instrumentalness = mean(instrumentalness, na.rm = TRUE),
+    avg_speechiness = mean(speechiness, na.rm = TRUE),
+    avg_liveness = mean(liveness, na.rm = TRUE),
+    avg_tempo = mean(tempo, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+cluster_summary %>%
+  mutate(across(where(is.numeric), round, 2)) %>%
+  knitr::kable(
+    caption = "Average audio features by cluster"
+  )
+```
+
+The cluster summary table gives the good overview of how the four groups differ. Each row represents one cluster, and each column shows the average value of an audio feature within that cluster.
+
+  - Cluster 1 has the highest average energy and very low acousticness. 
+  
+    - It also has lower valence, meaning these songs are energetic but not necessarily          happy or positive-sounding. I interpret this cluster as intense, high-energy music.
+    
+  - Cluster 2 stands out because it has the highest liveness and the highest speechiness.
+  
+    - This suggests that these songs may feel more performance-based, live, voice-forward,       or spoken-word-heavy compared with the other clusters.
+
+  - Cluster 3 has the highest acousticness and the lowest energy. It also has lower valence.
+  
+    - This suggests a calmer, softer, or more reflective group of songs.
+    
+  - Cluster 4 has the highest danceability and highest valence, while also having high energy. 
+  
+    - I think this makes it the clearest “feel-good” or upbeat cluster.
+
+### Let's make a cluster scatterplot!
+
+This plot shows the clusters using danceability and energy. Each point is a song, and the color shows which cluster it belongs to.
+
+```{r dance-energy-plot}
+ggplot(
+  spotify_clustered,
+  aes(x = danceability, y = energy, color = cluster)
+) +
+  geom_point(alpha = 0.45, size = 1.5) +
+  scale_color_manual(
+    values = c(
+      "1" = "#6A4C93",
+      "2" = "#1982C4",
+      "3" = "#8AC926",
+      "4" = "#FFCA3A"
+    )
+  ) +
+  labs(
+    title = "Song Clusters by Danceability and Energy",
+    subtitle = "Each point is a song. Colors show the cluster assigned by k-means.",
+    x = "Danceability",
+    y = "Energy",
+    color = "Cluster"
+  ) +
+  theme_minimal()
+```
+
+Yikes, looks a lot! 
+
+The full dataset has many songs, so plotting every point makes the graph crowded.
+
+How about I use a random sample of songs to make the pattern easier to see?
+
+```{r cluster plot sample}
+set.seed(123)
+
+spotify_plot_sample <- spotify_clustered %>%
+  sample_n(size = min(10000, nrow(spotify_clustered)))
+
+ggplot(
+  spotify_plot_sample,
+  aes(x = danceability, y = energy, color = cluster)
+) +
+  geom_point(alpha = 0.35, size = 1.4) +
+  scale_color_manual(
+    values = c(
+      "1" = "#6A4C93",
+      "2" = "#1982C4",
+      "3" = "#8AC926",
+      "4" = "#FFCA3A"
+    )
+  ) +
+  labs(
+    title = "Song Clusters by Danceability and Energy",
+    subtitle = "This plot uses a sample of songs to reduce overplotting.",
+    x = "Danceability",
+    y = "Energy",
+    color = "Cluster"
+  ) +
+  theme_minimal()
+```
+
+Looks better, but still a bit messy. 
+
+### Mood Plot
+
+How about making a mood plot? Let's see the clusters using valence and energy. I am using the sample here as well. Valence represents how positive or happy a song sounds (so, mooody!).
+
+```{r mood plot sample}
+ggplot(
+  spotify_plot_sample,
+  aes(x = valence, y = energy, color = cluster)
+) +
+  geom_point(alpha = 0.35, size = 1.4) +
+  scale_color_manual(
+    values = c(
+      "1" = "#6A4C93",
+      "2" = "#1982C4",
+      "3" = "#8AC926",
+      "4" = "#FFCA3A"
+    )
+  ) +
+  labs(
+    title = "Song Clusters by Mood Features",
+    subtitle = "This view helps connect clusters to possible moods or listening contexts.",
+    x = "Valence / Positivity",
+    y = "Energy",
+    color = "Cluster"
+  ) +
+  theme_minimal()
+```
+
+Right about now, I am kind of regretting this direction. Big yikes? The plots are still looking a bit messy, but let's see. 
+
+### Better plot for interpreting the clusters
+
+Let's try another approach. How about making a plot that shows the **average feature values** for each cluster. I am thinking it might make it easier to compare the "personality" of the clusters.
+
+```{r cluster-profile-plot}
+cluster_summary %>%
+  select(
+    cluster,
+    avg_danceability,
+    avg_energy,
+    avg_valence,
+    avg_acousticness,
+    avg_instrumentalness,
+    avg_speechiness,
+    avg_liveness
+  ) %>%
+  pivot_longer(
+    cols = -cluster,
+    names_to = "feature",
+    values_to = "average_value"
+  ) %>%
+  mutate(
+    feature = str_remove(feature, "avg_"),
+    feature = str_to_title(feature)
+  ) %>%
+  ggplot(aes(x = feature, y = average_value, fill = cluster)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(
+    values = c(
+      "1" = "#6A4C93",
+      "2" = "#1982C4",
+      "3" = "#8AC926",
+      "4" = "#FFCA3A"
+    )
+  ) +
+  labs(
+    title = "Average Audio Features by Cluster",
+    subtitle = "This plot helps interpret what makes each cluster different.",
+    x = "Audio feature",
+    y = "Average value",
+    fill = "Cluster"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1)
+  )
+```
+
+Ok, the average audio features plot makes the cluster differences easier to see visually. Instead of looking at individual songs, this plot compares the average feature profile of each cluster.
+
+The biggest differences appear in acousticness, energy, liveness, and valence. 
+
+  - Cluster 3 is much higher in acousticness than the other clusters, which supports the      idea that this group represents calmer or more acoustic songs. 
+  
+  - Cluster 1 is highest in energy and very low in acousticness, making it feel more          intense. 
+  
+  - Cluster 2 is clearly highest in liveness and also higher in speechiness, which helps      separate it from the other groups. 
+  
+  - Cluster 4 is highest in danceability and valence, suggesting upbeat songs that may be     easier to dance to or use for mood-boosting listening.
+
+This plot is more helpful than the scatterplots because it summarizes all of the key audio features at once. The scatterplots only show two variables at a time and they ended up messy, while this plot shows the broader profile of each cluster.
+
+### Show example songs from each cluster
+
+Since the cluster plots aren't really telling us much, how about we select popular songs from each cluster? I am thinking this can help us  understand what the clusters actually sound like in real life.
+
+```{r example-songs}
+example_songs <- spotify_clustered %>%
+  group_by(cluster) %>%
+  arrange(desc(popularity)) %>%
+  slice_head(n = 5) %>%
+  ungroup() %>%
+  select(
+    cluster,
+    track_name,
+    artists,
+    track_genre,
+    popularity,
+    danceability,
+    energy,
+    valence
+  )
+
+knitr::kable(
+  example_songs,
+  digits = 2,
+  caption = "Popular example songs from each cluster"
+)
+```
+
+### Clean up the example songs table 
+
+Some songs appear more than once in the dataset because they are listed under multiple genres. I am removing duplicate track/artist combinations so the example table is easier to read.
+
+```{r clean example songs}
+example_songs <- spotify_clustered %>%
+  distinct(track_name, artists, .keep_all = TRUE) %>%
+  group_by(cluster) %>%
+  arrange(desc(popularity)) %>%
+  slice_head(n = 5) %>%
+  ungroup() %>%
+  select(
+    cluster,
+    track_name,
+    artists,
+    track_genre,
+    popularity,
+    danceability,
+    energy,
+    valence
+  )
+
+knitr::kable(
+  example_songs,
+  digits = 2,
+  caption = "Popular example songs from each cluster"
+)
+```
+
+### Compare popularity by cluster
+
+Now, let's compare average popularity across clusters. We can see whether some song profiles are more popular on average.
+
+```{r popularity-by-cluster}
+ggplot(cluster_summary, aes(x = cluster, y = avg_popularity, fill = cluster)) +
+  geom_col(width = 0.7) +
+  scale_fill_manual(
+    values = c(
+      "1" = "#6A4C93",
+      "2" = "#1982C4",
+      "3" = "#8AC926",
+      "4" = "#FFCA3A"
+    )
+  ) +
+  labs(
+    title = "Average Popularity by Cluster",
+    subtitle = "This compares whether some song profiles are more popular on average.",
+    x = "Cluster",
+    y = "Average popularity"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+Average popularity was fairly similar across the four clusters. Cluster 3 had the lowest average popularity, while Clusters 1 and 2 were slightly higher. However, the differences are not large, so I would interpret this cautiously. This suggests that the clusters are more useful for understanding different song profiles than for explaining popularity.
+
+### Create listener profiles 
+
+As a final attempt to make this piece have a more meaningful direction and the custers easier to understand, I am going to try to translate the four clusters into listener profiles. 
+
+These profiles are not real users from survey data. Instead, they are interpretations based on the audio patterns in each cluster.  Instead of leaving the groups as Cluster 1, Cluster 2, Cluster 3, and Cluster 4, I gave each group a name based on its audio pattern.
+This step helped me connect the technical model output to user-centered language.
+
+```{r}
+listener_profiles <- tibble(
+  Cluster = c("1", "2", "3", "4"),
+  Listener_Profile = c(
+    "The Intense Listener",
+    "The Live/Voice Listener",
+    "The Calm Acoustic Listener",
+    "The Feel-Good Listener"
+  ),
+  Audio_Pattern = c(
+    "High energy, low acousticness, lower valence",
+    "High liveness, higher speechiness, high energy",
+    "High acousticness, low energy, lower valence",
+    "High danceability, high energy, high valence"
+  ),
+  Possible_Use_Case = c(
+    "Workouts, intense focus, dramatic or high-energy listening",
+    "Live performances, voice-forward music, rap or spoken-word-heavy listening",
+    "Studying, relaxing, reflective listening, background music",
+    "Dancing, commuting, social settings, mood boosting"
+  )
+)
+
+knitr::kable(
+  listener_profiles,
+  caption = "Listener profiles based on the four Spotify song clusters"
+)
+```
+
+### Conclusion
+
+For this portfolio piece, I used Spotify audio features to explore whether songs could be grouped into meaningful listening profiles. 
+
+
+The scatterplots were useful as a first look, but they were not enough to fully interpret the clusters. Even after using a sample of songs, the points still overlapped because the dataset contains many tracks and the clustering model used several features at once. This helped me understand that a two-dimensional plot can sometimes hide the full structure of a clustering model. The cluster summary table and average feature plot were more useful because they showed the average profile of each group across multiple audio features.
+
+This project helped me practice moving from data cleaning, to modeling, to interpretation. I also learned that the most important part of clustering is not just creating the groups, but explaining what those groups might mean. In the future, I would like to try practiicing in turning this kind of analysis into a recommendation tool, or playlist generator where users explore songs based on different listening profiles.
