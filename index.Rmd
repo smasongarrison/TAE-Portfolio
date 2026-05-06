@@ -1,10 +1,6 @@
 ---
-title: "My Portfolio"
+title: "Tsion's Portfolio"
 ---
 
 This website hosts my [portfolio](https://datascience4psych.github.io/DataScience4Psych/guidance.html#portfolio) and [accompanying documentation](https://datascience4psych.github.io/DataScience4Psych/guidance.html#documenting-your-project) that I developed as part of [Data Science for Psychologists](https://datascience4psych.github.io/DataScience4Psych/). You can find the links to individual portfolio pieces in the header. Each piece has a description of the goal, the product (computer program, hand graph, computer graph, etc.), the data, and some interpretation. I encourage you to explore them.
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus eu tortor ac lectus vestibulum imperdiet eget nec elit. Nam enim elit, condimentum vel vulputate et, bibendum id leo. Nam faucibus enim nec libero auctor finibus. Integer eu nisl a leo commodo interdum vel eu augue. Fusce gravida enim non augue porttitor malesuada. Integer tempor mattis quam at scelerisque. Sed scelerisque tristique gravida. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae;
-
-Vivamus non faucibus erat. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Proin facilisis nunc non tristique molestie. Ut semper laoreet dignissim. Integer venenatis augue quis metus finibus rhoncus. Praesent et metus auctor, tempus magna ac, euismod purus. Sed nulla augue, maximus vel convallis viverra, interdum et nulla. Aenean neque magna, varius vitae mi sed, consequat lobortis quam.
 

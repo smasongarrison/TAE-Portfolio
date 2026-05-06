@@ -2,19 +2,347 @@
 title: "Portfolio 10: Creating Figures From Eye-Tracking Data for Poster Presentation"
 ---
 
-> The projects should be numbered consecutively (i.e., in the order in which you began them), and should include for each project a description of the goal, the product (computer program, hand graph, computer graph, etc.), the data, and some interpretation. Reports must be reproducible and of high quality in terms of writing, grammar, presentation, etc.
+> Goal
+For this portfolio piece, I wanted to practice creating figures that I want to use for my first year poster presentation. In the previous portfolio piece, I focused on understanding the eye-tracking dataset, creating a cleaner trial-level and fixation-level dataset, and looking at what the data is looking like. For this piece, I wanted to build on that understanding to make more polished visualizations that summarize the main patterns in the data. 
 
+Here are the figures I want to show in my poster:
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed hendrerit purus ut dapibus vestibulum. Suspendisse potenti. Cras faucibus mauris in leo condimentum lobortis. Cras euismod sollicitudin augue, ut venenatis quam placerat eu. Maecenas vulputate rhoncus odio, in interdum risus malesuada gravida. Maecenas cursus sed dui sit amet lacinia. Nunc dignissim metus nec ex mattis, non rutrum urna cursus. Morbi pretium elementum purus, in aliquet libero eleifend ac. Nam finibus, ligula sed ultrices pharetra, tellus risus consequat tortor, facilisis maximus elit lectus a metus. Sed vel dictum nulla, vitae blandit turpis. Integer pulvinar tempor diam ac venenatis. Vestibulum est lacus, suscipit et ipsum nec, consectetur iaculis leo. Morbi libero lacus, scelerisque non sollicitudin vitae, accumsan sed tellus. Suspendisse quis orci tellus.
+1. **Response time cost by block**: Were participants slower when a singleton distractor was present?
+2. **Oculomotor capture by block**: How often did the first fixation land on the singleton distractor?
+3. **Dwell time by block**: When participants looked at the singleton, how long did they stay on it?
 
+These figures are useful because they show change over time. The broader research question is whether participants learned to avoid or disengage from distracting singleton colors across blocks.
 
-```{r, child='p10/demo.Rmd'}
+## Load Packages
+
+```{r load packages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(janitor)
+library(scales)
 ```
 
+## Read the Data
 
-Aliquam sed ex et lorem consequat feugiat at porta leo. Fusce id hendrerit tellus. Maecenas dictum felis neque, quis dictum metus tristique eu. Vivamus sed blandit nisl. Integer ut urna dolor. Cras in egestas eros, in aliquam nisi. Duis vitae elementum quam. Vivamus vel turpis commodo, porttitor urna vitae, viverra sem. Nam nec dignissim erat, id viverra libero. Integer vel lectus pellentesque tortor fringilla posuere. Vivamus quis magna accumsan, porta tortor at, aliquam urna. Aliquam vestibulum ante massa, ut gravida lectus sagittis vitae.
+```{r read-data}
+fix_raw <- read_tsv("data/fix_report.txt", na = c(".", "NA"), show_col_types = FALSE) %>%
+  clean_names() %>%
+  rename_with(~ str_remove(.x, "^t_"))
 
-Sed eget ipsum auctor, gravida magna sit amet, tincidunt mi. Nulla erat ante, volutpat nec sem eget, luctus posuere est. Praesent convallis nunc ac turpis bibendum, in maximus magna convallis. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Sed sit amet nulla ante. Sed elit sem, lobortis nec nisi a, rhoncus ornare nunc. Curabitur ultrices neque feugiat, facilisis magna eu, consectetur magna. Mauris id eleifend ex.
+glimpse(fix_raw)
+```
 
-Morbi tincidunt mollis odio sit amet feugiat. Ut vel risus eu ante dictum consequat. Integer et luctus mauris. Donec nec faucibus urna, sed commodo risus. Nam elementum pulvinar erat, eget convallis est blandit vel. Etiam gravida sapien eu massa hendrerit maximus. Proin dolor quam, porta vitae libero non, venenatis porta tellus. Vivamus et elit a est aliquet consequat. Proin tempus, purus quis suscipit placerat, dui nunc euismod dui, sit amet luctus leo lectus in risus. Phasellus consectetur eleifend arcu. Nullam venenatis blandit nulla ut ullamcorper. Vestibulum eu arcu quis massa scelerisque sodales in ac augue. Quisque dapibus fringilla turpis, ut cursus tortor cursus sed. Sed facilisis quam eget neque viverra venenatis. Suspendisse ut lorem nec erat elementum bibendum. Curabitur lobortis purus in cursus blandit.
+## Minimal Cleaning and Relabeling
 
+The original dataset is fixation-level, meaning a single trial can appear on multiple rows if the participant made multiple fixations. I convert key variables to numeric, remove practice trials, create readable singleton-condition labels, and keep only the experimental phase.
+
+```{r clean-data}
+fix_clean <- fix_raw %>%
+  mutate(
+    subjnum = as.numeric(subjnum),
+    block = as.numeric(block),
+    block_norm = block - 1,
+    trial = as.numeric(trial),
+    acc = as.numeric(acc),
+    rt = as.numeric(rt),
+    dwell = as.numeric(current_fix_duration),
+    targ_loc = as.numeric(targ_loc),
+    sing_loc = as.numeric(sing_loc),
+    current_fix_x = as.numeric(current_fix_x),
+    current_fix_y = as.numeric(current_fix_y),
+    current_fix_index = as.numeric(current_fix_index),
+    current_fix_start = as.numeric(current_fix_start),
+    sing_prob = case_when(
+      sing_pres == "A" ~ "Absent",
+      sing_prob == "high" ~ "High",
+      sing_prob == "low" ~ "Low",
+      TRUE ~ as.character(sing_prob)
+    ),
+    sing_loc = if_else(sing_pres == "A", 0, sing_loc),
+    keep_rt = rt > 200 & rt <= 2500
+  ) %>%
+  filter(
+    phase == "experiment",
+    block_norm >= 1,
+    block_norm <= 14,
+    !is.na(subjnum),
+    !is.na(trial),
+    !is.na(sing_prob)
+  )
+```
+
+## Helper Function for Plot Summaries
+
+For the poster-style figures, I want one mean value per condition and block. This helper function calculates the mean and standard error.
+
+```{r helper-function}
+summary_se <- function(data, value_col, group_cols) {
+  data %>%
+    group_by(across(all_of(group_cols))) %>%
+    summarise(
+      mean = mean({{ value_col }}, na.rm = TRUE),
+      sd = sd({{ value_col }}, na.rm = TRUE),
+      n = n(),
+      se = sd / sqrt(n),
+      lower = mean - se,
+      upper = mean + se,
+      .groups = "drop"
+    )
+}
+```
+
+## Figure Theme
+
+I used one consistent theme across the figures so that they look like they belong together.
+
+```{r figure-theme}
+poster_theme <- theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "top",
+    legend.title = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+condition_colors <- c(
+  "High" = "#1F9EB7",
+  "Low" = "#F4B400",
+  "Absent" = "#8ECAE6"
+)
+```
+
+# Figure 1: Response Time Cost by Block
+
+## Why This Figure?
+
+Response time cost compares singleton-present trials to singleton-absent trials. If participants are slower when the singleton is present, that suggests the distractor made the task harder. I calculated this separately for high-frequency and low-frequency singleton trials.
+
+For each participant and block, I calculated:
+
+- **High RT cost** = High singleton RT - Absent RT
+- **Low RT cost** = Low singleton RT - Absent RT
+
+```{r rt-cost-data}
+trial_data <- fix_clean %>%
+  distinct(subjnum, trial, .keep_all = TRUE) %>%
+  filter(
+    keep_rt,
+    acc == 1,
+    !is.na(rt),
+    !is.na(sing_prob)
+  )
+
+rt_by_subject_block <- trial_data %>%
+  group_by(subjnum, block_norm, sing_prob) %>%
+  summarise(mean_rt = mean(rt, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = sing_prob, values_from = mean_rt) %>%
+  filter(!is.na(Absent)) %>%
+  mutate(
+    High = High - Absent,
+    Low = Low - Absent
+  ) %>%
+  select(subjnum, block_norm, High, Low) %>%
+  pivot_longer(
+    cols = c(High, Low),
+    names_to = "singleton_frequency",
+    values_to = "rt_cost"
+  ) %>%
+  filter(!is.na(rt_cost))
+
+rt_cost_summary <- summary_se(
+  data = rt_by_subject_block,
+  value_col = rt_cost,
+  group_cols = c("block_norm", "singleton_frequency")
+)
+
+rt_cost_summary
+```
+
+```{r rt-cost-plot, fig.width=9, fig.height=5.5}
+ggplot(rt_cost_summary, aes(
+  x = block_norm,
+  y = mean,
+  color = singleton_frequency,
+  fill = singleton_frequency
+)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  scale_color_manual(values = condition_colors) +
+  scale_fill_manual(values = condition_colors) +
+  scale_x_continuous(breaks = 1:14) +
+  labs(
+    title = "Singleton Presence Cost Across Blocks",
+    subtitle = "Response time cost = singleton-present RT minus singleton-absent RT",
+    x = "Block",
+    y = "RT cost (ms)"
+  ) +
+  poster_theme
+```
+
+## Interpretation
+
+This figure shows whether singleton-present trials were slower than singleton-absent trials. Values above zero mean participants were slower when the singleton was present. If the lines decrease across blocks, that would suggest participants became less distracted over time.
+
+# Classifying Fixations for Eye-Tracking Figures
+
+The next two figures require knowing whether a fixation landed on the target, singleton, or a nonsingleton item. The raw data contain fixation coordinates, but not a simple label for the item being fixated. I approximate the item by comparing each fixation coordinate to the eight possible item locations.
+
+```{r classify-fixations}
+screen_width <- 1920
+screen_height <- 1080
+center_x <- screen_width / 2
+center_y <- screen_height / 2
+eccentricity <- 400
+fix_zone <- 90
+set_size <- 8
+
+item_locations <- tibble(
+  item_loc = 1:set_size,
+  angle = (item_loc - 1) * 2 * pi / set_size,
+  item_x = center_x + eccentricity * sin(angle),
+  item_y = center_y - eccentricity * cos(angle)
+)
+
+fix_items <- fix_clean %>%
+  filter(
+    keep_rt,
+    acc == 1,
+    !is.na(current_fix_x),
+    !is.na(current_fix_y),
+    !is.na(dwell)
+  ) %>%
+  mutate(row_id = row_number()) %>%
+  crossing(item_locations) %>%
+  mutate(distance = sqrt((current_fix_x - item_x)^2 + (current_fix_y - item_y)^2)) %>%
+  group_by(row_id) %>%
+  slice_min(distance, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  mutate(
+    curr_loc = if_else(distance <= fix_zone, item_loc, NA_integer_),
+    curr_item = case_when(
+      is.na(curr_loc) ~ NA_character_,
+      curr_loc == targ_loc ~ "Target",
+      curr_loc == sing_loc ~ "Singleton",
+      TRUE ~ "Nonsingleton"
+    )
+  )
+```
+
+# Figure 2: Oculomotor Capture by Block
+
+## Why This Figure?
+
+Oculomotor capture asks whether the eyes were pulled to the singleton distractor. For this figure, I looked at the first fixation that landed on a display item on each trial. Then I calculated the percentage of trials where that first fixation landed on the singleton.
+
+```{r oculomotor-capture-data}
+first_display_fix <- fix_items %>%
+  filter(
+    sing_prob %in% c("High", "Low"),
+    !is.na(curr_item)
+  ) %>%
+  group_by(subjnum, trial) %>%
+  arrange(current_fix_start, current_fix_index, .by_group = TRUE) %>%
+  slice(1) %>%
+  ungroup() %>%
+  mutate(first_on_singleton = curr_item == "Singleton")
+
+oculomotor_by_subject_block <- first_display_fix %>%
+  group_by(subjnum, block_norm, sing_prob) %>%
+  summarise(
+    oculomotor_capture = mean(first_on_singleton, na.rm = TRUE) * 100,
+    .groups = "drop"
+  )
+
+oculomotor_summary <- summary_se(
+  data = oculomotor_by_subject_block,
+  value_col = oculomotor_capture,
+  group_cols = c("block_norm", "sing_prob")
+)
+
+oculomotor_summary
+```
+
+```{r oculomotor-capture-plot, fig.width=9, fig.height=5.5}
+ggplot(oculomotor_summary, aes(
+  x = block_norm,
+  y = mean,
+  color = sing_prob,
+  fill = sing_prob
+)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.8) +
+  scale_color_manual(values = condition_colors) +
+  scale_fill_manual(values = condition_colors) +
+  scale_x_continuous(breaks = 1:14) +
+  scale_y_continuous(labels = label_percent(scale = 1)) +
+  labs(
+    title = "Oculomotor Capture Across Blocks",
+    subtitle = "Percent of first display fixations landing on the singleton",
+    x = "Block",
+    y = "First fixations on singleton"
+  ) +
+  poster_theme
+```
+
+## Interpretation
+
+This plot shows how often participants first looked at the singleton distractor. A decrease across blocks would suggest that participants became better at avoiding the singleton. This is related to the idea of oculomotor suppression.
+
+# Figure 3: First Singleton Fixation Dwell Time by Block
+
+## Why This Figure?
+
+The previous figure asks whether the singleton captured the eyes. This figure asks what happened after the singleton was fixated. Dwell time measures how long participants stayed on the singleton once they looked at it. Shorter dwell times may suggest faster disengagement.
+
+```{r dwell-block-data}
+first_singleton_fix <- fix_items %>%
+  filter(
+    sing_prob %in% c("High", "Low"),
+    curr_item == "Singleton",
+    !is.na(dwell)
+  ) %>%
+  group_by(subjnum, trial) %>%
+  arrange(current_fix_start, current_fix_index, .by_group = TRUE) %>%
+  slice(1) %>%
+  ungroup()
+
+dwell_by_subject_block <- first_singleton_fix %>%
+  group_by(subjnum, block_norm, sing_prob) %>%
+  summarise(
+    dwell_time = mean(dwell, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+dwell_summary <- summary_se(
+  data = dwell_by_subject_block,
+  value_col = dwell_time,
+  group_cols = c("block_norm", "sing_prob")
+)
+
+dwell_summary
+```
+
+```{r dwell-block-plot, fig.width=9, fig.height=5.5}
+ggplot(dwell_summary, aes(
+  x = block_norm,
+  y = mean,
+  color = sing_prob,
+  fill = sing_prob
+)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.18, color = NA) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.8) +
+  scale_color_manual(values = condition_colors) +
+  scale_fill_manual(values = condition_colors) +
+  scale_x_continuous(breaks = 1:14) +
+  labs(
+    title = "First Singleton Fixation Dwell Time Across Blocks",
+    subtitle = "Mean duration of the first fixation on the singleton",
+    x = "Block",
+    y = "Dwell time (ms)"
+  ) +
+  poster_theme
+```
