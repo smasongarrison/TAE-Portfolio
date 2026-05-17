@@ -41,13 +41,34 @@ library(scales)
 ## Read the Data
 
 ```{r read-data}
+if(file.exists("data/fix_report.txt")){
+
 fix_raw <- read_tsv("data/fix_report.txt", na = c(".", "NA"), show_col_types = FALSE) %>%
   
 # Remove the prefix t_ from the beginning of column names.
   clean_names() %>%
   rename_with(~ str_remove(.x, "^t_"))
+} else {
+  set.seed(9009)
+source("p09/helper_functions.R")
+# Values taken from the knitted p09 output.
+n_rows_target <- 65876
+n_trial_units <- 15196
+n_participants <- 32
+n_blocks <- 15
+set_size <- 8
+
+screen_width <- 1920
+screen_height <- 1080
+center_x <- screen_width / 2
+center_y <- screen_height / 2
+eccentricity <- 400
+
+source("p09/make_fix_report.R")
+}
 
 glimpse(fix_raw)
+
 ```
 
 ## Basic Structure of the Dataset
@@ -363,3 +384,135 @@ This pattern makes sense because the target was task-relevant. Participants like
 This exploratory analysis helped me practice the analysis process for my project by simplifying the complex eye-tracking dataset into a more manageable form. 
 
 This analysis is intentionally simplified. In our research analysis, we will be using the complete preprocessing pipeline, including more careful and in-depth fixation classification, subject exclusion rules, and within-subject error bars.
+
+# Bonus heat map
+
+Here's what I (Mason) was thinking for the heat maps. 
+
+```{r data-for-heatmap}
+bins <- 45
+fake_heatmap_data <- fix_raw %>%
+  filter(
+    phase == "experiment",
+    !is.na(current_fix_x),
+    !is.na(current_fix_y)
+  ) %>% 
+  mutate(current_fix_x_bin = as.numeric(cut(current_fix_x, bins)),
+         current_fix_y_bin = as.numeric(cut(current_fix_y, bins))) 
+
+fake_heatmap_data <- fake_heatmap_data %>% 
+#  group_by(current_fix_x_bin, current_fix_y_bin) %>%
+  summarise(.by = c(current_fix_x_bin, current_fix_y_bin),
+current_fix_duration_binned = mean(current_fix_duration, na.rm = TRUE)) %>%
+  ungroup() %>%
+  right_join(fake_heatmap_data, by = c("current_fix_x_bin", "current_fix_y_bin"))
+
+item_locations <- item_locations %>%
+  mutate(item_x_bin = as.numeric(cut(item_x, bins)),
+         item_y_bin = as.numeric(cut(item_y, bins)))
+```
+
+```{r heatmap, fig.width=8, fig.height=5*16}
+
+core_plot <- ggplot(fake_heatmap_data, 
+                    aes(x = current_fix_x, 
+                        y = current_fix_y, group = subjnum
+                        )) 
+
+binned_plot <- core_plot +
+  geom_bin2d(binwidth = c(45, 45)
+             )+# bin size of 45 pixels
+  scale_x_continuous(limits = c(0, screen_width), expand = c(0, 0)) +
+  scale_y_reverse(limits = c(screen_height, 0), expand = c(0, 0)) + 
+  geom_point(
+    data = item_locations,
+    aes(x = item_x, y = item_y),
+    inherit.aes = FALSE,
+    shape = 21,
+    fill = "white",
+    color = "black",
+    size = 3
+  ) +
+  geom_text(
+    data = item_locations,
+    aes(x = item_x, y = item_y, label = item_loc),
+    inherit.aes = FALSE,
+    color = "black",
+    size = 3
+  )
+
+# adds a summary statistic (mean fixation duration) to each bin, which is then visualized using color intensity. The `stat = 'identity'` argument tells `geom_bin2d` to use the provided summary statistic directly for the fill color of each bin, rather than counting the number of observations in each bin.
+duration_plot <- core_plot +
+  geom_bin2d(stat = 'identity',
+             aes(fill = current_fix_duration_binned,
+                 x = current_fix_x_bin,
+                 y = current_fix_y_bin
+                 ))+
+  scale_x_continuous(breaks = c(1,bins), labels = c(0, screen_width))+
+  scale_y_reverse(breaks = c(1,bins), labels = c(screen_height,0)) + 
+  geom_point(
+    data = item_locations,
+    aes(x = item_x_bin, y = item_y_bin),
+    inherit.aes = FALSE,
+    shape = 21,
+    fill = "white",
+    color = "black",
+    size = 3
+  ) +
+  geom_text(
+    data = item_locations,
+    aes(x = item_x_bin, y = item_y_bin, label = item_loc),
+    inherit.aes = FALSE,
+    color = "black",
+    size = 3
+  )
+  
+             
+
+
+```
+```{r}
+duration_plot +
+  scale_fill_viridis_c(
+    option = "magma",
+    trans = "sqrt",
+    name = "Simulated fixation Duration (ms)"
+  )  +
+  coord_fixed() +
+  labs(
+    title = "Simulated Fixation Heatmap",
+    subtitle = "Fake fixation coordinates calibrated to the structure and summaries shown in the knitted p09 output",
+    x = "Screen X coordinate",
+    y = "Screen Y coordinate"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()#,
+  #  legend.position = "bottom",
+    # text should be vertical in the legend
+  #  legend.text = element_text(angle = 270, vjust = 0.5)
+  ) #+
+ # facet_wrap(~subjnum, ncol = 4)
+
+binned_plot  +   scale_fill_viridis_c(
+    option = "viridis",
+    trans = "sqrt",
+    name = "Simulated fixation Frequency"
+  )  +
+  coord_fixed() +
+  labs(
+    title = "Simulated Fixation Heatmap",
+    subtitle = "Fake fixation coordinates calibrated to the structure and summaries shown in the knitted p09 output",
+    x = "Screen X coordinate",
+    y = "Screen Y coordinate"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()#,
+  #  legend.position = "bottom",
+    # text should be vertical in the legend
+  #  legend.text = element_text(angle = 270, vjust = 0.5)
+  )
+```
